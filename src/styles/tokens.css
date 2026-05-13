@@ -18,14 +18,14 @@
 /* catppuccin latte (light) — solid by default */
 :root[data-theme="latte"],
 :root[data-theme="light"] {
-  --bg: #eff1f5;
+  --bg: #eff1f5;            /* base */
   --bg-rgb: 239, 241, 245;
-  --fg: #4c4f69;
-  --muted: #8c8fa1;
-  --border: #ccd0da;
-  --accent: #fe640b;
-  --surface: #e6e9ef;
-  --surface-hover: #dce0e8;
+  --fg: #4c4f69;            /* text */
+  --muted: #9ca0b0;         /* overlay0 */
+  --border: #ccd0da;        /* surface0 */
+  --accent: #fe640b;        /* peach */
+  --surface: #e6e9ef;       /* mantle */
+  --surface-hover: #bcc0cc; /* surface1 */
   --shadow-soft: 0 1px 2px rgba(76, 79, 105, 0.06), 0 2px 8px rgba(76, 79, 105, 0.05);
   color-scheme: light;
 }
@@ -48,12 +48,12 @@
 :root[data-theme="macchiato"] {
   --bg: #24273a;
   --bg-rgb: 36, 39, 58;
-  --fg: #cad3f5;
-  --muted: #8087a2;
-  --border: #363a4f;
-  --accent: #f5a97f;
-  --surface: #1e2030;
-  --surface-hover: #363a4f;
+  --fg: #cad3f5;            /* text */
+  --muted: #6e738d;         /* overlay0 */
+  --border: #363a4f;        /* surface0 */
+  --accent: #f5a97f;        /* peach */
+  --surface: #1e2030;       /* mantle */
+  --surface-hover: #494d64; /* surface1 */
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.22);
   color-scheme: dark;
 }
@@ -77,12 +77,12 @@
 :root[data-theme="dark"] {
   --bg: #1e1e2e;
   --bg-rgb: 30, 30, 46;
-  --fg: #cdd6f4;
-  --muted: #7f849c;
-  --border: #313244;
-  --accent: #fab387;
-  --surface: #181825;
-  --surface-hover: #292c3c;
+  --fg: #cdd6f4;            /* text */
+  --muted: #6c7086;         /* overlay0 */
+  --border: #313244;        /* surface0 */
+  --accent: #fab387;        /* peach */
+  --surface: #181825;       /* mantle */
+  --surface-hover: #45475a; /* surface1 */
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.25);
   color-scheme: dark;
 }
@@ -92,11 +92,11 @@
   --bg: #eff1f5;
   --bg-rgb: 239, 241, 245;
   --fg: #4c4f69;
-  --muted: #8c8fa1;
+  --muted: #9ca0b0;
   --border: #ccd0da;
   --accent: #fe640b;
   --surface: #e6e9ef;
-  --surface-hover: #dce0e8;
+  --surface-hover: #bcc0cc;
   color-scheme: light;
 }
 
@@ -105,11 +105,11 @@
     --bg: #1e1e2e;
     --bg-rgb: 30, 30, 46;
     --fg: #cdd6f4;
-    --muted: #7f849c;
+    --muted: #6c7086;
     --border: #313244;
     --accent: #fab387;
     --surface: #181825;
-    --surface-hover: #292c3c;
+    --surface-hover: #45475a;
     color-scheme: dark;
   }
 }
