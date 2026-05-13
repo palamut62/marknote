@@ -10,12 +10,14 @@ import {
   Splitter,
   StatusBar,
   TitleBar,
+  Toast,
   WelcomeOverlay,
   type SaveStatus,
 } from "@/components/features";
 import { useDebouncedValue, usePersistedState, useShortcuts } from "@/hooks";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
+import { openPath } from "@tauri-apps/plugin-opener";
 import {
   basename,
   buildBundle,
@@ -59,7 +61,7 @@ export function App() {
   const [welcomed, setWelcomed] = usePersistedState<boolean>(STORAGE_KEYS.welcomed, false);
   const [welcomeOpen, setWelcomeOpen] = useState(!welcomed);
   const [dragActive, setDragActive] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ message: string; path?: string } | null>(null);
 
   const dismissWelcome = useCallback(() => {
     setWelcomeOpen(false);
@@ -120,7 +122,7 @@ export function App() {
       setLoadError(null);
       const check = await validateMarkdownFile(path);
       if (!check.ok) {
-        setLoadError(check.reason);
+        setLoadError({ message: check.reason, path });
         console.warn("marka.md: refused to open", path, "·", check.reason);
         return;
       }
@@ -132,7 +134,7 @@ export function App() {
         setSaveStatus("idle");
       } catch (err) {
         console.error("marka.md: readMarkdown failed", err);
-        setLoadError(String(err));
+        setLoadError({ message: String(err), path });
       }
     },
     [setActivePath],
@@ -226,7 +228,10 @@ export function App() {
         if (firstMd) {
           void loadFile(firstMd);
         } else if (paths.length > 0) {
-          setLoadError("only .md / .markdown / .mdx files can be opened by drag-and-drop.");
+          setLoadError({
+            message: "only .md / .markdown / .mdx files can be opened in marka.md",
+            path: paths[0],
+          });
         }
       }
     }).then((un) => {
@@ -362,19 +367,27 @@ export function App() {
         />
       </main>
 
-      {loadError ? (
-        <div className="mdv-toast mdv-toast--error" role="alert">
-          <span>{loadError}</span>
-          <button
-            type="button"
-            className="mdv-toast__dismiss"
-            onClick={() => setLoadError(null)}
-            aria-label="dismiss"
-          >
-            ×
-          </button>
-        </div>
-      ) : null}
+      <Toast
+        open={loadError != null}
+        message={loadError?.message ?? ""}
+        onDismiss={() => setLoadError(null)}
+        action={
+          loadError?.path
+            ? {
+                label: "open in default app",
+                onClick: async () => {
+                  if (loadError.path) {
+                    try {
+                      await openPath(loadError.path);
+                    } catch (err) {
+                      console.error("marka.md: openPath failed", err);
+                    }
+                  }
+                },
+              }
+            : undefined
+        }
+      />
 
       <CommandPalette
         open={paletteOpen}
