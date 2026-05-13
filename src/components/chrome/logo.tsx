@@ -6,9 +6,9 @@ type LogoProps = {
 };
 
 /**
- * mdview brand mark — the M-shaped cube tower with the orange octopus mascot.
+ * marka.md brand mark — the M-shaped cube tower with the orange octopus mascot.
  */
-export function Logo({ size = 22, title = "mdview" }: LogoProps) {
+export function Logo({ size = 22, title = "marka.md" }: LogoProps) {
   return (
     <img
       src={logoUrl}

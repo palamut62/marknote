@@ -77,7 +77,7 @@ export function App() {
         setActivePath(path);
         setSaveStatus("idle");
       } catch (err) {
-        console.error("mdview: readMarkdown failed", err);
+        console.error("marka.md: readMarkdown failed", err);
       }
     },
     [setActivePath],
@@ -94,7 +94,7 @@ export function App() {
           setSaveStatus((s: SaveStatus) => (s === "saved" ? "idle" : s));
         }, SAVED_FLASH_MS);
       } catch (err) {
-        console.error("mdview: writeMarkdown failed", err);
+        console.error("marka.md: writeMarkdown failed", err);
         setSaveStatus("dirty");
       }
     },

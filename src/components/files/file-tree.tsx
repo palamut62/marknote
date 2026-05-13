@@ -24,7 +24,7 @@ export function FileTree({ rootPath, activePath, onSelect, depth = 0 }: FileTree
       })
       .catch((e) => {
         if (!cancelled) {
-          console.error("mdview: listFolder failed", e);
+          console.error("marka.md: listFolder failed", e);
           setError(String(e));
         }
       });

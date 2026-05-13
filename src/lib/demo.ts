@@ -1,4 +1,4 @@
-export const DEMO_MARKDOWN = `# welcome to mdview
+export const DEMO_MARKDOWN = `# welcome to marka.md
 
 > local markdown, live. type on the left, see it render on the right.
 

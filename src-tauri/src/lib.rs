@@ -18,7 +18,7 @@ pub fn run() {
                     Some(NSVisualEffectState::Active),
                     Some(12.0),
                 ) {
-                    eprintln!("mdview: apply_vibrancy failed: {err:?}");
+                    eprintln!("marka.md: apply_vibrancy failed: {err:?}");
                 }
             }
             Ok(())

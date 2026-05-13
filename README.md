@@ -1,18 +1,21 @@
-# mdview
+# marka.md
 
-_local markdown, live._
+_a local markdown space, built for the notes you share with ai._
 
-a native macos markdown editor + live preview. live editor on the left (codemirror 6), rendered preview on the right (markdown-it + shiki). minimal chrome, full catppuccin theme support, macos vibrancy. ~10 mb bundle.
+a native macos markdown editor specialized for **claude / llm context management**. live editor on the left (codemirror 6), rendered preview on the right (markdown-it + shiki). minimal chrome, full catppuccin + matcha themes, macos vibrancy, orange octopus mascot. ~10 mb bundle.
+
+> think obsidian, but the workshop where you craft and bundle the markdown you'll paste into claude.
 
 ## features
 
 - live preview with debounced render (~50 ms)
-- catppuccin themes: latte / frappé / macchiato / mocha + system auto-switch
+- 5 themes: catppuccin **latte / frappé / macchiato / mocha** + **matcha** (washi paper + kelly green) + system auto-switch
 - macos vibrancy with opt-in transparency toggle
 - copy-to-clipboard on every code block
-- syntax highlighting via shiki (catppuccin themes baked in)
-- resizable split with persisted ratio
-- standard codemirror 6 keybindings
+- syntax highlighting via shiki (all 5 themes baked in)
+- file tree sidebar with resize handle and persisted state
+- ⌘k command palette · ⌘/ help overlay · ⌘b sidebar toggle
+- first-launch welcome with the marka.md mascot
 
 ## install
 
@@ -28,16 +31,29 @@ bun run tauri build    # produces .dmg under src-tauri/target/release/bundle/dmg
 
 ### prebuilt
 
-`.dmg` releases coming once phase 4 lands.
+signed `.dmg` releases will land once distribution is set up.
+
+## keyboard
+
+| key | does |
+|---|---|
+| ⌘K | command palette |
+| ⌘N | new untitled buffer |
+| ⌘O | open a `.md` file |
+| ⌘⇧O | open a folder |
+| ⌘S | save (manual — no autosave) |
+| ⌘B | toggle sidebar |
+| ⌘/ | help overlay |
+| esc | close any popup |
 
 ## stack
 
 | layer | choice |
 |---|---|
-| shell | tauri 2 |
+| shell | tauri 2 (rust + webview) |
 | frontend | react 19, vite 7, typescript 5.8 |
 | editor | codemirror 6 + @codemirror/lang-markdown |
-| markdown | markdown-it + shiki |
+| markdown | markdown-it + shiki + markdown-it-task-lists |
 | icons | lucide-react |
 | styling | css variables, no framework |
 
@@ -45,18 +61,25 @@ bun run tauri build    # produces .dmg under src-tauri/target/release/bundle/dmg
 
 ```
 src/
-├── app.tsx                  # shell layout
-├── main.tsx                 # react entry
+├── app.tsx                       # thin shell — state + layout
+├── main.tsx                      # react entry
+├── app.css                       # @imports + shell grid
 ├── components/
-│   ├── primitives/          # button, icon, pane, divider, popover
-│   └── features/            # title-bar, editor, preview, splitter, logo
-├── hooks/                   # useDebouncedValue, usePersistedState
-├── lib/                     # markdown, theme, storage, demo
-└── styles/                  # tokens, globals, + per-concern css splits
+│   ├── primitives/               # button, icon, popover, overlay, kbd
+│   ├── chrome/                   # title-bar, breadcrumb, status-bar, logo
+│   ├── editor/                   # editor, preview, splitter
+│   ├── files/                    # sidebar, file-tree
+│   ├── overlays/                 # command-palette, help-overlay, welcome
+│   └── features/                 # top-level barrel
+├── hooks/                        # use-debounced, use-persisted-state, use-shortcuts
+├── lib/                          # markdown, theme, files, storage, commands
+├── styles/                       # tokens, globals + per-domain css
+└── assets/mascot/                # in-app sprites
 src-tauri/
-├── src/lib.rs               # rust entry, vibrancy setup
-├── tauri.conf.json          # window config (overlay title bar)
+├── src/lib.rs                    # rust entry + vibrancy
+├── tauri.conf.json               # overlay title bar
 └── Cargo.toml
+mdview-assets/                    # source PNGs (mascot + favicons)
 ```
 
 every folder exports its public api via `index.ts`. path alias `@/*` resolves to `src/*`.
@@ -64,15 +87,21 @@ every folder exports its public api via `index.ts`. path alias `@/*` resolves to
 ## roadmap
 
 shipped:
-- branded shell, codemirror editor, live markdown preview, resizable split
-- full catppuccin themes (latte / frappé / macchiato / mocha) + system + opt-in transparency
-- copy-to-clipboard on every code block
+- branded shell + mascot + welcome flow
+- codemirror editor + live preview + resizable splitter
+- 5 themes (catppuccin family + matcha) + transparency
+- copy-to-clipboard on code blocks
+- file tree sidebar with persisted state
+- ⌘K command palette + ⌘/ help overlay
 
 planned:
-- file tree sidebar — open a folder, browse `.md` files like an ide
-- ⌘o / ⌘s / drag-drop + finder "open with → mdview"
-- app icon, synchronized scroll, signed `.dmg`, homebrew tap
+- context-bundling: select multiple `.md` → one prompt blob with separators + token estimate
+- "copy as claude context" + "send to claude" commands
+- finder integration (`.md` "open with → marka.md")
+- per-file tags (system / example / spec)
+- prompt templates
 - mermaid + katex (stretch)
+- mcp integration (stretch)
 
 ## license
 

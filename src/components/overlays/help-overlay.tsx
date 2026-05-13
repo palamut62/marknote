@@ -30,7 +30,7 @@ const TIPS = [
 
 export function HelpOverlay({ open, onClose }: HelpOverlayProps) {
   return (
-    <Overlay open={open} onClose={onClose} ariaLabel="how to use mdview" variant="modal">
+    <Overlay open={open} onClose={onClose} ariaLabel="how to use marka.md" variant="modal">
       <header className="mdv-help__header">
         <div className="mdv-help__title">
           <img
