@@ -33,7 +33,15 @@ bun run tauri build    # produces .dmg under src-tauri/target/release/bundle/dmg
 
 download the latest `.dmg` from [releases](https://github.com/mattenarle10/markamd/releases), or build your own with `bun run tauri build`.
 
-on first launch macOS may ask you to confirm — **right-click the app → open** in Finder, then "Open" in the dialog. one-time.
+### ⚠️ first launch — "marka.md is damaged"
+
+macOS Gatekeeper is strict with unsigned downloads and shows a misleading **"marka.md is damaged and can't be opened"** message. the app isn't damaged — it's just unsigned. **one-time fix** after dragging to /Applications:
+
+```sh
+xattr -cr /Applications/marka.md.app
+```
+
+then double-click to open. this strips the macOS quarantine attribute. cert-signed builds (coming soon) won't need this step.
 
 ## keyboard
 
