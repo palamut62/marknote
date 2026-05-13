@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   CircleHelp,
+  Copy,
   FilePlus2,
   FolderOpen,
   FolderPlus,
@@ -11,6 +12,7 @@ import {
   PanelLeftOpen,
   Save,
   Sparkles,
+  SquareDashed,
   Sun,
 } from "lucide-react";
 import { setThemeMode, setTransparency, type ThemeMode } from "./theme";
@@ -32,8 +34,11 @@ export type CommandActions = {
   save: () => void;
   toggleSidebar: () => void;
   showHelp: () => void;
+  copyBundle: () => void | Promise<void>;
+  clearSelection: () => void;
   hasActivePath: boolean;
   sidebarOpen: boolean;
+  selectedCount: number;
 };
 
 const THEME_COMMANDS: Array<{ mode: ThemeMode; label: string; hint: string; icon: LucideIcon }> = [
@@ -108,6 +113,24 @@ export function buildCommands(actions: CommandActions): Command[] {
       hint: "solid window background",
       icon: Sparkles,
       action: () => setTransparency(false),
+    },
+    {
+      id: "copy-bundle",
+      label: "copy bundle to clipboard",
+      hint:
+        actions.selectedCount > 0
+          ? `${actions.selectedCount} file${actions.selectedCount === 1 ? "" : "s"} selected · concat with separators`
+          : "select files in the sidebar first",
+      shortcut: "⌘⇧C",
+      icon: Copy,
+      action: actions.copyBundle,
+    },
+    {
+      id: "clear-selection",
+      label: "clear bundle selection",
+      hint: `${actions.selectedCount} selected`,
+      icon: SquareDashed,
+      action: actions.clearSelection,
     },
     {
       id: "help",

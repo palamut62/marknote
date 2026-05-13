@@ -1,17 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
+import { Check, ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
 import { Icon } from "@/components/primitives";
-import { listFolder, type FileEntry } from "@/lib";
+import { isMarkdownPath, listFolder, type FileEntry } from "@/lib";
 import sadUrl from "@/assets/mascot/sad.png";
 
 type FileTreeProps = {
   rootPath: string;
   activePath: string | null;
+  selectedPaths: ReadonlySet<string>;
   onSelect: (path: string) => void;
+  onToggleSelection: (path: string) => void;
   depth?: number;
 };
 
-export function FileTree({ rootPath, activePath, onSelect, depth = 0 }: FileTreeProps) {
+export function FileTree({
+  rootPath,
+  activePath,
+  selectedPaths,
+  onSelect,
+  onToggleSelection,
+  depth = 0,
+}: FileTreeProps) {
   const [entries, setEntries] = useState<FileEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +65,9 @@ export function FileTree({ rootPath, activePath, onSelect, depth = 0 }: FileTree
             key={entry.path}
             entry={entry}
             activePath={activePath}
+            selectedPaths={selectedPaths}
             onSelect={onSelect}
+            onToggleSelection={onToggleSelection}
             depth={depth}
           />
         ) : (
@@ -64,7 +75,9 @@ export function FileTree({ rootPath, activePath, onSelect, depth = 0 }: FileTree
             key={entry.path}
             entry={entry}
             active={activePath === entry.path}
+            selected={selectedPaths.has(entry.path)}
             onSelect={onSelect}
+            onToggleSelection={onToggleSelection}
             depth={depth}
           />
         ),
@@ -76,11 +89,20 @@ export function FileTree({ rootPath, activePath, onSelect, depth = 0 }: FileTree
 type FolderNodeProps = {
   entry: FileEntry;
   activePath: string | null;
+  selectedPaths: ReadonlySet<string>;
   onSelect: (path: string) => void;
+  onToggleSelection: (path: string) => void;
   depth: number;
 };
 
-function FolderNode({ entry, activePath, onSelect, depth }: FolderNodeProps) {
+function FolderNode({
+  entry,
+  activePath,
+  selectedPaths,
+  onSelect,
+  onToggleSelection,
+  depth,
+}: FolderNodeProps) {
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((v) => !v), []);
 
@@ -105,7 +127,9 @@ function FolderNode({ entry, activePath, onSelect, depth }: FolderNodeProps) {
         <FileTree
           rootPath={entry.path}
           activePath={activePath}
+          selectedPaths={selectedPaths}
           onSelect={onSelect}
+          onToggleSelection={onToggleSelection}
           depth={depth + 1}
         />
       ) : null}
@@ -116,25 +140,49 @@ function FolderNode({ entry, activePath, onSelect, depth }: FolderNodeProps) {
 type FileNodeProps = {
   entry: FileEntry;
   active: boolean;
+  selected: boolean;
   onSelect: (path: string) => void;
+  onToggleSelection: (path: string) => void;
   depth: number;
 };
 
-function FileNode({ entry, active, onSelect, depth }: FileNodeProps) {
+function FileNode({ entry, active, selected, onSelect, onToggleSelection, depth }: FileNodeProps) {
+  const isMd = isMarkdownPath(entry.path);
+
   return (
     <li className="mdv-tree__item" role="treeitem" aria-selected={active}>
-      <button
-        type="button"
-        className={`mdv-tree__row mdv-tree__row--file${active ? " is-active" : ""}`}
+      <div
+        className={`mdv-tree__row mdv-tree__row--file${active ? " is-active" : ""}${selected ? " is-checked" : ""}`}
         style={{ paddingLeft: `${8 + depth * 12 + 16}px` }}
-        onClick={() => onSelect(entry.path)}
         title={entry.path}
       >
-        <span className="mdv-tree__icon">
-          <Icon icon={FileText} size={13} strokeWidth={1.5} />
-        </span>
-        <span className="mdv-tree__name">{entry.name}</span>
-      </button>
+        {isMd ? (
+          <button
+            type="button"
+            className={`mdv-tree__check${selected ? " is-checked" : ""}`}
+            aria-label={selected ? "remove from bundle" : "add to bundle"}
+            aria-pressed={selected}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelection(entry.path);
+            }}
+          >
+            {selected ? <Icon icon={Check} size={11} strokeWidth={2.5} /> : null}
+          </button>
+        ) : (
+          <span className="mdv-tree__check mdv-tree__check--spacer" aria-hidden />
+        )}
+        <button
+          type="button"
+          className="mdv-tree__row-main"
+          onClick={() => onSelect(entry.path)}
+        >
+          <span className="mdv-tree__icon">
+            <Icon icon={FileText} size={13} strokeWidth={1.5} />
+          </span>
+          <span className="mdv-tree__name">{entry.name}</span>
+        </button>
+      </div>
     </li>
   );
 }

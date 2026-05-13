@@ -15,7 +15,9 @@ import {
 import { useDebouncedValue, usePersistedState, useShortcuts } from "@/hooks";
 import {
   basename,
+  buildBundle,
   buildCommands,
+  estimateTokens,
   pickFolder,
   pickMarkdownFile,
   readMarkdown,
@@ -51,6 +53,39 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [welcomed, setWelcomed] = usePersistedState<boolean>(STORAGE_KEYS.welcomed, false);
   const [welcomeOpen, setWelcomeOpen] = useState(!welcomed);
+  const [selectedPathsArray, setSelectedPathsArray] = usePersistedState<string[]>(
+    STORAGE_KEYS.selectedPaths,
+    [],
+  );
+  const selectedPaths = useMemo(() => new Set(selectedPathsArray), [selectedPathsArray]);
+
+  const toggleSelection = useCallback(
+    (path: string) => {
+      setSelectedPathsArray(
+        selectedPathsArray.includes(path)
+          ? selectedPathsArray.filter((p) => p !== path)
+          : [...selectedPathsArray, path],
+      );
+    },
+    [selectedPathsArray, setSelectedPathsArray],
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedPathsArray([]);
+  }, [setSelectedPathsArray]);
+
+  const copyBundle = useCallback(async () => {
+    if (selectedPathsArray.length === 0) return;
+    const bundle = await buildBundle(selectedPathsArray, rootPath);
+    try {
+      await navigator.clipboard.writeText(bundle);
+      console.log(
+        `marka.md: bundled ${selectedPathsArray.length} files · ~${estimateTokens(bundle)} tokens`,
+      );
+    } catch (err) {
+      console.error("marka.md: bundle copy failed", err);
+    }
+  }, [selectedPathsArray, rootPath]);
 
   const dismissWelcome = useCallback(() => {
     setWelcomeOpen(false);
@@ -170,6 +205,10 @@ export function App() {
         e.preventDefault();
         void handleOpenFolder();
       },
+      "mod+shift+c": (e: KeyboardEvent) => {
+        e.preventDefault();
+        void copyBundle();
+      },
     }),
     [
       sidebarOpen,
@@ -181,6 +220,7 @@ export function App() {
       handleOpenFolder,
       handleNewFile,
       setSidebarOpen,
+      copyBundle,
     ],
   );
   useShortcuts(shortcuts);
@@ -198,8 +238,11 @@ export function App() {
         },
         toggleSidebar: () => setSidebarOpen(!sidebarOpen),
         showHelp: () => setHelpOpen(true),
+        copyBundle,
+        clearSelection,
         hasActivePath: activePath != null,
         sidebarOpen,
+        selectedCount: selectedPathsArray.length,
       }),
     [
       handleNewFile,
@@ -211,6 +254,9 @@ export function App() {
       saveNow,
       sidebarOpen,
       setSidebarOpen,
+      copyBundle,
+      clearSelection,
+      selectedPathsArray,
     ],
   );
 
@@ -239,10 +285,14 @@ export function App() {
           open={sidebarOpen}
           rootPath={rootPath}
           activePath={activePath}
+          selectedPaths={selectedPaths}
           width={sidebarWidth}
           onWidthChange={setSidebarWidth}
           onOpenFolder={handleOpenFolder}
           onSelectFile={(path) => void loadFile(path)}
+          onToggleSelection={toggleSelection}
+          onClearSelection={clearSelection}
+          onCopyBundle={() => void copyBundle()}
         />
         <Splitter
           left={<Editor value={source} onChange={setSource} />}

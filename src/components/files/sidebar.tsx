@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { FolderOpen } from "lucide-react";
+import { Copy, FolderOpen, X } from "lucide-react";
 import { Button, Icon } from "@/components/primitives";
 import { basename } from "@/lib";
 import emptyTowerUrl from "@/assets/mascot/empty-m.png";
@@ -9,10 +9,14 @@ type SidebarProps = {
   open: boolean;
   rootPath: string | null;
   activePath: string | null;
+  selectedPaths: ReadonlySet<string>;
   width: number;
   onWidthChange: (next: number) => void;
   onOpenFolder: () => void;
   onSelectFile: (path: string) => void;
+  onToggleSelection: (path: string) => void;
+  onClearSelection: () => void;
+  onCopyBundle: () => void;
 };
 
 const MIN_WIDTH = 180;
@@ -22,10 +26,14 @@ export function Sidebar({
   open,
   rootPath,
   activePath,
+  selectedPaths,
   width,
   onWidthChange,
   onOpenFolder,
   onSelectFile,
+  onToggleSelection,
+  onClearSelection,
+  onCopyBundle,
 }: SidebarProps) {
   const draggingRef = useRef(false);
   const startXRef = useRef(0);
@@ -72,6 +80,8 @@ export function Sidebar({
     };
   }, []);
 
+  const selectedCount = selectedPaths.size;
+
   return (
     <aside
       className={`mdv-sidebar${open ? " is-open" : ""}`}
@@ -84,7 +94,7 @@ export function Sidebar({
             {rootPath ? basename(rootPath) : "no folder"}
           </span>
           <Button
-            title="open folder"
+            title="open folder (⌘⇧O)"
             aria-label="open folder"
             onClick={onOpenFolder}
             icon={<Icon icon={FolderOpen} size={13} strokeWidth={1.5} />}
@@ -92,7 +102,13 @@ export function Sidebar({
         </header>
         <div className="mdv-sidebar__body">
           {rootPath ? (
-            <FileTree rootPath={rootPath} activePath={activePath} onSelect={onSelectFile} />
+            <FileTree
+              rootPath={rootPath}
+              activePath={activePath}
+              selectedPaths={selectedPaths}
+              onSelect={onSelectFile}
+              onToggleSelection={onToggleSelection}
+            />
           ) : (
             <button type="button" className="mdv-sidebar__empty" onClick={onOpenFolder}>
               <img
@@ -109,6 +125,30 @@ export function Sidebar({
             </button>
           )}
         </div>
+        {selectedCount > 0 ? (
+          <footer className="mdv-sidebar__bundle">
+            <div className="mdv-sidebar__bundle-info">
+              <span className="mdv-sidebar__bundle-count">{selectedCount}</span>
+              <span className="mdv-sidebar__bundle-label">
+                {selectedCount === 1 ? "file selected" : "files selected"}
+              </span>
+            </div>
+            <div className="mdv-sidebar__bundle-actions">
+              <Button
+                title="copy bundle to clipboard (⌘⇧C)"
+                aria-label="copy bundle"
+                onClick={onCopyBundle}
+                icon={<Icon icon={Copy} size={12} strokeWidth={1.5} />}
+              />
+              <Button
+                title="clear selection"
+                aria-label="clear selection"
+                onClick={onClearSelection}
+                icon={<Icon icon={X} size={12} strokeWidth={1.5} />}
+              />
+            </div>
+          </footer>
+        ) : null}
       </div>
 
       <div
