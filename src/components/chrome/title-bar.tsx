@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { Button, Icon, Popover } from "@/components/primitives";
 import { useThemeMode, useTransparency, type ThemeMode } from "@/lib";
-import { Logo } from "./logo";
 
 type TitleBarProps = {
   fileName?: string;
@@ -49,10 +48,7 @@ export function TitleBar({ fileName, dirty = false }: TitleBarProps) {
     <header className="mdv-titlebar" data-tauri-drag-region>
       <div className="mdv-titlebar__lead" data-tauri-drag-region />
 
-      <div className="mdv-titlebar__brand" data-tauri-drag-region title="marka.md">
-        <span data-tauri-drag-region style={{ display: "inline-flex", pointerEvents: "none" }}>
-          <Logo size={28} />
-        </span>
+      <div className="mdv-titlebar__center" data-tauri-drag-region>
         {fileName ? (
           <span className="mdv-titlebar__filename" data-tauri-drag-region>
             {fileName}
