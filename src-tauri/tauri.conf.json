@@ -40,6 +40,17 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "fileAssociations": [
+        {
+          "ext": ["md", "markdown", "mdx"],
+          "name": "Markdown",
+          "description": "Markdown document",
+          "role": "Editor",
+          "rank": "Alternate"
+        }
+      ]
+    }
   }
 }

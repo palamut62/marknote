@@ -22,5 +22,7 @@ export {
   isMarkdownPath,
   basename,
   dirname,
+  validateMarkdownFile,
   type FileEntry,
+  type FileValidation,
 } from "./files";

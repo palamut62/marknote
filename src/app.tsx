@@ -13,14 +13,17 @@ import {
   type SaveStatus,
 } from "@/components/features";
 import { useDebouncedValue, usePersistedState, useShortcuts } from "@/hooks";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   basename,
   buildBundle,
   buildCommands,
   estimateTokens,
+  isMarkdownPath,
   pickFolder,
   pickMarkdownFile,
   readMarkdown,
+  validateMarkdownFile,
   writeMarkdown,
   STORAGE_KEYS,
 } from "@/lib";
@@ -103,8 +106,17 @@ export function App() {
 
   const dirty = activePath != null && source !== savedContent;
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const loadFile = useCallback(
     async (path: string) => {
+      setLoadError(null);
+      const check = await validateMarkdownFile(path);
+      if (!check.ok) {
+        setLoadError(check.reason);
+        console.warn("marka.md: refused to open", path, "·", check.reason);
+        return;
+      }
       try {
         const content = await readMarkdown(path);
         setSource(content);
@@ -113,6 +125,7 @@ export function App() {
         setSaveStatus("idle");
       } catch (err) {
         console.error("marka.md: readMarkdown failed", err);
+        setLoadError(String(err));
       }
     },
     [setActivePath],
@@ -172,6 +185,27 @@ export function App() {
   const handleToggleSidebar = useCallback(() => {
     setSidebarOpen(!sidebarOpen);
   }, [setSidebarOpen, sidebarOpen]);
+
+  // drag-and-drop a .md onto the window
+  useEffect(() => {
+    const win = getCurrentWindow();
+    let unlisten: (() => void) | undefined;
+    void win.onDragDropEvent((event) => {
+      if (event.payload.type !== "drop") return;
+      const paths = event.payload.paths ?? [];
+      const firstMd = paths.find(isMarkdownPath);
+      if (firstMd) {
+        void loadFile(firstMd);
+      } else if (paths.length > 0) {
+        setLoadError("only .md / .markdown / .mdx files can be opened by drag-and-drop.");
+      }
+    }).then((un) => {
+      unlisten = un;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [loadFile]);
 
   const shortcuts = useMemo(
     () => ({
@@ -299,6 +333,20 @@ export function App() {
           right={<Preview source={debouncedPreview} />}
         />
       </main>
+
+      {loadError ? (
+        <div className="mdv-toast mdv-toast--error" role="alert">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            className="mdv-toast__dismiss"
+            onClick={() => setLoadError(null)}
+            aria-label="dismiss"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
 
       <CommandPalette
         open={paletteOpen}
