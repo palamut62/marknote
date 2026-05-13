@@ -1,19 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CircleHelp,
-  FilePlus2,
-  FolderOpen,
-  FolderPlus,
-  Leaf,
-  Monitor,
-  Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Save,
-  Sparkles,
-  Sun,
-} from "lucide-react";
-import {
   Breadcrumb,
   CommandPalette,
   Editor,
@@ -23,17 +9,15 @@ import {
   Splitter,
   StatusBar,
   TitleBar,
-  type Command,
   type SaveStatus,
 } from "@/components/features";
 import { useDebouncedValue, usePersistedState } from "@/hooks";
 import {
   basename,
+  buildCommands,
   pickFolder,
   pickMarkdownFile,
   readMarkdown,
-  setThemeMode,
-  setTransparency,
   writeMarkdown,
   STORAGE_KEYS,
 } from "@/lib";
@@ -191,116 +175,22 @@ export function App() {
     setSidebarOpen,
   ]);
 
-  const commands = useMemo<Command[]>(
-    () => [
-      {
-        id: "new",
-        label: "new file",
-        hint: "start an untitled markdown buffer",
-        shortcut: "⌘N",
-        icon: FilePlus2,
-        action: handleNewFile,
-      },
-      {
-        id: "open-file",
-        label: "open file…",
-        hint: "pick a .md from your disk",
-        shortcut: "⌘O",
-        icon: FolderOpen,
-        action: handleOpenFile,
-      },
-      {
-        id: "open-folder",
-        label: "open folder…",
-        hint: "load a folder into the sidebar",
-        shortcut: "⌘⇧O",
-        icon: FolderPlus,
-        action: handleOpenFolder,
-      },
-      {
-        id: "save",
-        label: "save",
-        hint: activePath ? "write to disk" : "no file loaded — pick one first",
-        shortcut: "⌘S",
-        icon: Save,
-        action: () => {
+  const commands = useMemo(
+    () =>
+      buildCommands({
+        newFile: handleNewFile,
+        openFile: handleOpenFile,
+        openFolder: handleOpenFolder,
+        save: () => {
           if (activePath && source !== savedContent) {
             void saveNow(activePath, source);
           }
         },
-      },
-      {
-        id: "toggle-sidebar",
-        label: sidebarOpen ? "hide sidebar" : "show sidebar",
-        shortcut: "⌘B",
-        icon: sidebarOpen ? PanelLeftClose : PanelLeftOpen,
-        action: () => setSidebarOpen(!sidebarOpen),
-      },
-      {
-        id: "theme-system",
-        label: "theme: system",
-        hint: "follow macOS appearance",
-        icon: Monitor,
-        action: () => setThemeMode("system"),
-      },
-      {
-        id: "theme-latte",
-        label: "theme: latte",
-        hint: "catppuccin light",
-        icon: Sun,
-        action: () => setThemeMode("latte"),
-      },
-      {
-        id: "theme-matcha",
-        label: "theme: matcha",
-        hint: "washi paper + kelly green",
-        icon: Leaf,
-        action: () => setThemeMode("matcha"),
-      },
-      {
-        id: "theme-frappe",
-        label: "theme: frappé",
-        hint: "catppuccin mid-dark",
-        icon: Moon,
-        action: () => setThemeMode("frappe"),
-      },
-      {
-        id: "theme-macchiato",
-        label: "theme: macchiato",
-        hint: "catppuccin deeper dark",
-        icon: Moon,
-        action: () => setThemeMode("macchiato"),
-      },
-      {
-        id: "theme-mocha",
-        label: "theme: mocha",
-        hint: "catppuccin deepest dark",
-        icon: Moon,
-        action: () => setThemeMode("mocha"),
-      },
-      {
-        id: "transparency-on",
-        label: "transparency: on",
-        hint: "macOS vibrancy through the window",
-        icon: Sparkles,
-        action: () => setTransparency(true),
-      },
-      {
-        id: "transparency-off",
-        label: "transparency: off",
-        hint: "solid window background",
-        icon: Sparkles,
-        action: () => setTransparency(false),
-      },
-      {
-        id: "help",
-        label: "show help",
-        hint: "keyboard shortcuts + tips",
-        shortcut: "⌘/",
-        icon: CircleHelp,
-        action: () => setHelpOpen(true),
-      },
-    ],
+        toggleSidebar: () => setSidebarOpen(!sidebarOpen),
+        showHelp: () => setHelpOpen(true),
+        hasActivePath: activePath != null,
+        sidebarOpen,
+      }),
     [
       handleNewFile,
       handleOpenFile,

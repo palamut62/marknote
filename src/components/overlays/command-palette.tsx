@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LucideIcon } from "lucide-react";
 import { Icon, Kbd, Overlay } from "@/components/primitives";
+import type { Command } from "@/lib/commands";
 
-export type Command = {
-  id: string;
-  label: string;
-  hint?: string;
-  shortcut?: string;
-  icon?: LucideIcon;
-  action: () => void | Promise<void>;
-};
+export type { Command };
 
 type CommandPaletteProps = {
   open: boolean;

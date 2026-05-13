@@ -10,6 +10,7 @@ export {
   type ThemeMode,
 } from "./theme";
 export { STORAGE_KEYS, type StorageKey } from "./storage";
+export { buildCommands, type Command, type CommandActions } from "./commands";
 export {
   pickFolder,
   pickMarkdownFile,
