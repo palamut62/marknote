@@ -2,6 +2,52 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ensureMarkdownReady, renderMarkdown, useTheme } from "@/lib";
 import inspectUrl from "@/assets/mascot/inspect.png";
 
+let mermaidLib: typeof import("mermaid")["default"] | null = null;
+let mermaidLoading: Promise<typeof import("mermaid")["default"]> | null = null;
+
+async function getMermaid(themeName: "default" | "dark") {
+  if (mermaidLib) return mermaidLib;
+  if (!mermaidLoading) {
+    mermaidLoading = import("mermaid").then((mod) => {
+      mod.default.initialize({
+        startOnLoad: false,
+        theme: themeName,
+        securityLevel: "strict",
+        fontFamily: "JetBrains Mono, ui-monospace, monospace",
+      });
+      mermaidLib = mod.default;
+      return mod.default;
+    });
+  }
+  return mermaidLoading;
+}
+
+async function renderMermaidBlocks(root: HTMLElement, theme: "default" | "dark") {
+  const blocks = Array.from(root.querySelectorAll<HTMLPreElement>("pre.mdv-mermaid:not(.is-rendered)"));
+  if (blocks.length === 0) return;
+  const mermaid = await getMermaid(theme);
+  mermaid.initialize({
+    startOnLoad: false,
+    theme,
+    securityLevel: "strict",
+    fontFamily: "JetBrains Mono, ui-monospace, monospace",
+  });
+
+  for (const pre of blocks) {
+    const code = pre.querySelector("code")?.textContent ?? "";
+    const id = pre.id || `mdv-mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    try {
+      const { svg } = await mermaid.render(`${id}-svg`, code);
+      pre.innerHTML = svg;
+      pre.classList.add("is-rendered");
+    } catch (err) {
+      console.error("marka.md: mermaid render failed", err);
+      pre.innerHTML = `<code class="mdv-mermaid__error">${code}</code>`;
+      pre.classList.add("is-rendered", "is-error");
+    }
+  }
+}
+
 type PreviewProps = {
   source: string;
 };
@@ -82,6 +128,12 @@ export function Preview({ source }: PreviewProps) {
     if (!articleRef.current) return;
     return decorateCodeBlocks(articleRef.current);
   }, [html]);
+
+  useEffect(() => {
+    if (!articleRef.current) return;
+    const mermaidTheme = theme === "latte" || theme === "matcha" ? "default" : "dark";
+    void renderMermaidBlocks(articleRef.current, mermaidTheme);
+  }, [html, theme]);
 
   if (source.trim().length === 0) {
     return (

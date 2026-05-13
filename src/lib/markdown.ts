@@ -3,6 +3,8 @@ import taskLists from "markdown-it-task-lists";
 import { createHighlighter, type Highlighter } from "shiki";
 import type { Theme } from "./theme";
 
+let mermaidCounter = 0;
+
 const LANGS = ["markdown", "ts", "tsx", "js", "jsx", "json", "rust", "bash", "css", "html", "python", "go"];
 const THEMES = {
   latte: "catppuccin-latte",
@@ -44,6 +46,15 @@ const md = new MarkdownIt({
   typographer: true,
   breaks: false,
   highlight: (code, lang) => {
+    // mermaid blocks bypass shiki — Preview component renders them as svg
+    if (lang === "mermaid") {
+      const id = `mdv-mermaid-${++mermaidCounter}`;
+      const encoded = code
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      return `<pre class="mdv-mermaid" id="${id}"><code>${encoded}</code></pre>`;
+    }
     if (!highlighter) return "";
     const loaded = highlighter.getLoadedLanguages() as readonly string[];
     const language = loaded.includes(lang) ? lang : "text";

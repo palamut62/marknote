@@ -189,6 +189,41 @@
   text-decoration: var(--shiki-matcha-text-decoration, inherit) !important;
 }
 
+/* mermaid diagram container */
+.mdv-mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  padding: 18px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.mdv-mermaid:not(.is-rendered) {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--muted);
+  white-space: pre;
+}
+
+.mdv-mermaid.is-rendered svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mdv-mermaid.is-error {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.mdv-mermaid__error {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--muted);
+  white-space: pre;
+}
+
 .mdv-prose blockquote {
   border-left: 2px solid var(--accent);
   padding: 2px 0 2px 14px;
