@@ -38,7 +38,7 @@ download the latest `marka.md_<version>_aarch64.dmg` from [releases](https://git
 1. **right-click → open** in Finder → "Open" in the warning dialog (one-time approval)
 2. or `xattr -d com.apple.quarantine /Applications/marka.md.app` in Terminal
 
-code-signing + notarization with an Apple Developer ID is on the roadmap.
+code-signing + notarization with an Apple Developer ID is on the roadmap — see [SIGNING.md](./SIGNING.md) for the plan.
 
 ## keyboard
 
