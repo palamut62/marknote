@@ -1,5 +1,6 @@
 import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button, Icon } from "@/components/primitives";
+import exciteUrl from "@/assets/mascot/excite.png";
 
 export type SaveStatus = "idle" | "dirty" | "saving" | "saved";
 
@@ -85,7 +86,19 @@ export function Breadcrumb({
       <div className="mdv-breadcrumb__status" data-status={saveStatus}>
         {saveStatus !== "idle" ? (
           <>
-            <span className="mdv-breadcrumb__dot" aria-hidden />
+            {saveStatus === "saved" ? (
+              <img
+                src={exciteUrl}
+                alt=""
+                aria-hidden
+                width={16}
+                height={16}
+                draggable={false}
+                className="mdv-breadcrumb__excite"
+              />
+            ) : (
+              <span className="mdv-breadcrumb__dot" aria-hidden />
+            )}
             <span className="mdv-breadcrumb__status-label">{label}</span>
           </>
         ) : null}
