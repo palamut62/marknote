@@ -2,19 +2,40 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 36px 36px 28px;
+  padding: 32px 36px 22px;
   text-align: center;
+  min-height: 480px;
+}
+
+.mdv-welcome__slide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  width: 100%;
+  animation: mdv-welcome-slide 240ms var(--easing);
+}
+
+@keyframes mdv-welcome-slide {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .mdv-welcome__art {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
   filter: drop-shadow(0 4px 16px color-mix(in srgb, var(--accent) 22%, transparent));
   animation: mdv-welcome-bob 4s var(--easing) infinite;
 }
 
 @keyframes mdv-welcome-bob {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  50% { transform: translateY(-4px); }
 }
 
 .mdv-welcome__title {
@@ -23,62 +44,65 @@
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--fg);
-  margin: 0 0 4px;
+  margin: 0 0 10px;
 }
 
-.mdv-welcome__tagline {
+.mdv-welcome__body {
   font-family: var(--font-ui);
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--muted);
-  margin: 0 0 22px;
-  max-width: 380px;
-  line-height: 1.55;
-}
-
-.mdv-welcome__points {
-  list-style: none;
-  margin: 0 0 26px;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--fg);
-  text-align: left;
-  width: 100%;
+  margin: 0 0 28px;
   max-width: 420px;
+  line-height: 1.65;
 }
 
-.mdv-welcome__points li {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.mdv-welcome__points li::before {
-  content: "›";
-  color: var(--accent);
+.mdv-welcome__body code {
   font-family: var(--font-mono);
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.mdv-welcome__points code {
-  font-family: var(--font-mono);
-  font-size: 0.92em;
+  font-size: 0.9em;
   padding: 1px 5px;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: color-mix(in srgb, var(--accent) 70%, var(--fg));
 }
 
-.mdv-welcome__points kbd {
+.mdv-welcome__body .mdv-kbd {
   margin: 0 1px;
+}
+
+.mdv-welcome__dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 22px;
+}
+
+.mdv-welcome__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--border);
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--easing),
+    transform var(--dur-fast) var(--easing),
+    width var(--dur-base) var(--easing);
+}
+
+.mdv-welcome__dot:hover {
+  background: var(--muted);
+}
+
+.mdv-welcome__dot.is-active {
+  background: var(--accent);
+  width: 18px;
 }
 
 .mdv-welcome__actions {
   display: flex;
   gap: 10px;
+  margin-bottom: 12px;
 }
 
 .mdv-welcome__actions .mdv-btn {
@@ -89,4 +113,14 @@
 
 .mdv-welcome__actions .mdv-btn--solid {
   font-weight: 500;
+}
+
+.mdv-welcome__hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }

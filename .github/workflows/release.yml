@@ -1,0 +1,62 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: setup rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: install dependencies
+        run: bun install
+
+      - name: build + release dmg
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "marka.md ${{ github.ref_name }}"
+          releaseBody: |
+            **marka.md ${{ github.ref_name }}** — apple silicon dmg.
+
+            ## install
+
+            1. download the `.dmg` below
+            2. open it, drag the app to Applications
+            3. **right-click the app → Open** (one-time gatekeeper bypass for unsigned indie builds)
+
+            full changelog: https://github.com/mattenarle10/markamd/compare/v0.1.0...${{ github.ref_name }}
+          releaseDraft: false
+          prerelease: false
+          args: --target aarch64-apple-darwin
