@@ -47,23 +47,19 @@ export function TitleBar({ fileName, dirty = false }: TitleBarProps) {
 
   return (
     <header className="mdv-titlebar" data-tauri-drag-region>
-      <div className="mdv-titlebar__lead" data-tauri-drag-region>
-        <div className="mdv-titlebar__brand" data-tauri-drag-region>
-          <span data-tauri-drag-region style={{ display: "inline-flex", pointerEvents: "none" }}>
-            <Logo size={28} />
-          </span>
-          <span className="mdv-titlebar__name" data-tauri-drag-region>marka.md</span>
-        </div>
+      <div className="mdv-titlebar__lead" data-tauri-drag-region />
+
+      <div className="mdv-titlebar__brand" data-tauri-drag-region title="marka.md">
+        <span data-tauri-drag-region style={{ display: "inline-flex", pointerEvents: "none" }}>
+          <Logo size={28} />
+        </span>
         {fileName ? (
-          <div className="mdv-titlebar__doc" data-tauri-drag-region>
-            <span className="mdv-titlebar__sep" data-tauri-drag-region>·</span>
-            <span className="mdv-titlebar__filename" data-tauri-drag-region>{fileName}</span>
+          <span className="mdv-titlebar__filename" data-tauri-drag-region>
+            {fileName}
             {dirty ? <span className="mdv-titlebar__dot" aria-label="unsaved changes" data-tauri-drag-region /> : null}
-          </div>
+          </span>
         ) : null}
       </div>
-
-      <div className="mdv-titlebar__spacer" data-tauri-drag-region />
 
       <div className="mdv-titlebar__actions">
         <div className="mdv-titlebar__theme" ref={themeAnchorRef}>

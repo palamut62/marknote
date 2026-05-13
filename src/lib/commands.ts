@@ -34,6 +34,7 @@ export type CommandActions = {
   save: () => void;
   toggleSidebar: () => void;
   showHelp: () => void;
+  showWelcome: () => void;
   copyBundle: () => void | Promise<void>;
   clearSelection: () => void;
   hasActivePath: boolean;
@@ -139,6 +140,13 @@ export function buildCommands(actions: CommandActions): Command[] {
       shortcut: "⌘/",
       icon: CircleHelp,
       action: actions.showHelp,
+    },
+    {
+      id: "tutorial",
+      label: "show tutorial · welcome",
+      hint: "reopen the onboarding modal",
+      icon: Sparkles,
+      action: actions.showWelcome,
     },
   ];
 }

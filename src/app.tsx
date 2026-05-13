@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Breadcrumb,
   CommandPalette,
+  DropOverlay,
   Editor,
   HelpOverlay,
   Preview,
@@ -57,6 +58,18 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [welcomed, setWelcomed] = usePersistedState<boolean>(STORAGE_KEYS.welcomed, false);
   const [welcomeOpen, setWelcomeOpen] = useState(!welcomed);
+  const [dragActive, setDragActive] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const dismissWelcome = useCallback(() => {
+    setWelcomeOpen(false);
+    setWelcomed(true);
+  }, [setWelcomed]);
+
+  const showWelcome = useCallback(() => {
+    setWelcomeOpen(true);
+  }, []);
+
   const [selectedPathsArray, setSelectedPathsArray] = usePersistedState<string[]>(
     STORAGE_KEYS.selectedPaths,
     [],
@@ -91,11 +104,6 @@ export function App() {
     }
   }, [selectedPathsArray, rootPath]);
 
-  const dismissWelcome = useCallback(() => {
-    setWelcomeOpen(false);
-    setWelcomed(true);
-  }, [setWelcomed]);
-
   const debouncedPreview = useDebouncedValue(source, 50);
 
   const { words, minutes } = useMemo(() => {
@@ -106,8 +114,6 @@ export function App() {
   }, [source]);
 
   const dirty = activePath != null && source !== savedContent;
-
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadFile = useCallback(
     async (path: string) => {
@@ -203,18 +209,25 @@ export function App() {
     };
   }, [loadFile]);
 
-  // drag-and-drop a .md onto the window
+  // drag-and-drop a .md onto the window — also drives the drop overlay
   useEffect(() => {
     const win = getCurrentWindow();
     let unlisten: (() => void) | undefined;
     void win.onDragDropEvent((event) => {
-      if (event.payload.type !== "drop") return;
-      const paths = event.payload.paths ?? [];
-      const firstMd = paths.find(isMarkdownPath);
-      if (firstMd) {
-        void loadFile(firstMd);
-      } else if (paths.length > 0) {
-        setLoadError("only .md / .markdown / .mdx files can be opened by drag-and-drop.");
+      const type = event.payload.type;
+      if (type === "enter" || type === "over") {
+        setDragActive(true);
+      } else if (type === "leave") {
+        setDragActive(false);
+      } else if (type === "drop") {
+        setDragActive(false);
+        const paths = event.payload.paths ?? [];
+        const firstMd = paths.find(isMarkdownPath);
+        if (firstMd) {
+          void loadFile(firstMd);
+        } else if (paths.length > 0) {
+          setLoadError("only .md / .markdown / .mdx files can be opened by drag-and-drop.");
+        }
       }
     }).then((un) => {
       unlisten = un;
@@ -289,6 +302,7 @@ export function App() {
         },
         toggleSidebar: () => setSidebarOpen(!sidebarOpen),
         showHelp: () => setHelpOpen(true),
+        showWelcome,
         copyBundle,
         clearSelection,
         hasActivePath: activePath != null,
@@ -375,6 +389,8 @@ export function App() {
         onClose={dismissWelcome}
         onOpenFolder={handleOpenFolder}
       />
+
+      <DropOverlay active={dragActive} />
 
       <StatusBar
         fileName={displayName}
