@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, FolderOpen, Sparkles } from "lucide-react";
 import { Button, Icon, Kbd, Overlay } from "@/components/primitives";
 import writeUrl from "@/assets/mascot/write.png";
-import emptyTowerUrl from "@/assets/mascot/empty-m.png";
+import notebookUrl from "@/assets/mascot/notebook.png";
+import penUrl from "@/assets/mascot/pen.png";
 import inspectUrl from "@/assets/mascot/inspect.png";
 import exciteUrl from "@/assets/mascot/excite.png";
 
@@ -27,7 +28,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    mascot: emptyTowerUrl,
+    mascot: notebookUrl,
     title: "open your notes",
     body: (
       <>
@@ -36,7 +37,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    mascot: inspectUrl,
+    mascot: penUrl,
     title: "edit & live preview",
     body: (
       <>
@@ -45,7 +46,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    mascot: writeUrl,
+    mascot: inspectUrl,
     title: "bundle for claude",
     body: (
       <>
