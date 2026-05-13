@@ -29,9 +29,16 @@ bun run tauri dev      # native window with hmr
 bun run tauri build    # produces .dmg under src-tauri/target/release/bundle/dmg/
 ```
 
-### prebuilt
+### prebuilt `.dmg` (apple silicon)
 
-signed `.dmg` releases will land once distribution is set up.
+download the latest `marka.md_<version>_aarch64.dmg` from [releases](https://github.com/mattenarle10/markamd/releases) (or build your own via `bun run tauri build`).
+
+**first launch — unsigned app**: macOS will block it with "marka.md can't be opened because Apple cannot check it for malicious software." This is normal for unsigned indie apps. Two ways to bypass:
+
+1. **right-click → open** in Finder → "Open" in the warning dialog (one-time approval)
+2. or `xattr -d com.apple.quarantine /Applications/marka.md.app` in Terminal
+
+code-signing + notarization with an Apple Developer ID is on the roadmap.
 
 ## keyboard
 
