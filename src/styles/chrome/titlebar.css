@@ -1,8 +1,8 @@
 .mdv-titlebar {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 12px 0 84px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
@@ -20,7 +20,12 @@
 }
 
 .mdv-titlebar__lead {
+  flex: 1;
   min-width: 0;
+}
+
+.mdv-titlebar__actions {
+  flex-shrink: 0;
 }
 
 .mdv-titlebar__center {
