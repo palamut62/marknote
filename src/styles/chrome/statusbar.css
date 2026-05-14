@@ -28,3 +28,35 @@
   color: var(--accent);
   background: transparent;
 }
+
+.mdv-statusbar__bundle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-weight: 500;
+  animation: mdv-bundle-pop 220ms var(--easing);
+}
+
+.mdv-statusbar__bundle svg {
+  margin-right: 1px;
+}
+
+.mdv-statusbar__bundle-sep {
+  opacity: 0.55;
+}
+
+@keyframes mdv-bundle-pop {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

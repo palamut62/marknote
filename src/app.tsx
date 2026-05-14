@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Breadcrumb,
   CommandPalette,
@@ -103,6 +103,37 @@ export function App() {
     [],
   );
   const selectedPaths = useMemo(() => new Set(selectedPathsArray), [selectedPathsArray]);
+
+  // ambient token estimate for the selection — shown in the status bar
+  const tokenCacheRef = useRef<Map<string, number>>(new Map());
+  const [tokenEstimate, setTokenEstimate] = useState(0);
+
+  useEffect(() => {
+    if (selectedPathsArray.length === 0) {
+      setTokenEstimate(0);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const cache = tokenCacheRef.current;
+      for (const p of selectedPathsArray) {
+        if (cache.has(p) || cancelled) continue;
+        try {
+          const content = await readMarkdown(p);
+          cache.set(p, estimateTokens(content));
+        } catch {
+          cache.set(p, 0);
+        }
+      }
+      if (cancelled) return;
+      let total = 0;
+      for (const p of selectedPathsArray) total += cache.get(p) ?? 0;
+      setTokenEstimate(total);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPathsArray]);
 
   const toggleSelection = useCallback(
     (path: string) => {
@@ -453,6 +484,8 @@ export function App() {
         fileName={displayName}
         words={words}
         minutes={minutes}
+        selectedCount={selectedPathsArray.length}
+        tokenEstimate={tokenEstimate}
         onShowHelp={() => setHelpOpen(true)}
       />
     </div>

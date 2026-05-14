@@ -11,7 +11,7 @@ export {
 } from "./theme";
 export { STORAGE_KEYS, type StorageKey } from "./storage";
 export { buildCommands, type Command, type CommandActions } from "./commands";
-export { buildBundle, estimateTokens, type BundleFormat } from "./bundle";
+export { buildBundle, estimateTokens, formatTokens, type BundleFormat } from "./bundle";
 export {
   pickFolder,
   pickMarkdownFile,
