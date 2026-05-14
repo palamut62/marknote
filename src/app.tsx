@@ -81,10 +81,11 @@ export function App() {
   }, [setSidebarOpen]);
 
   const exportToPdf = useCallback(() => {
-    // macOS print dialog has "Save as PDF" built in. WKWebView snapshots the
-    // live DOM (not @media print), so we apply `.mdv-print` to body first,
-    // wait two frames so the new layout is painted, then call window.print()
-    // (which blocks until the user dismisses the dialog). Class removed after.
+    // KNOWN LIMITATION: window.print() is a no-op in Tauri 2's WKWebView on
+    // macOS — it returns synchronously without surfacing the native print
+    // panel. The body class flashes on/off but no dialog appears.
+    // Planned fix: render markdown → standalone styled HTML → temp file →
+    // openPath() in default browser, where ⌘P → Save as PDF works natively.
     document.body.classList.add("mdv-print");
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
