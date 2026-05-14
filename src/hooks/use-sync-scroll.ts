@@ -10,10 +10,10 @@ type Options = {
 /**
  * Proportional bidirectional scroll sync.
  *
- * Perf: each side's handler is rAF-throttled (max one sync per frame), and
- * each programmatic write briefly locks the other side so we don't echo.
- *
- * useSyncScroll({ rebindKey: activePath });
+ * Each side's handler is rAF-throttled (max one sync per frame). Echo
+ * prevention is counter-based: before a programmatic write to dst, we mark
+ * dst's expected-echo counter; the dst listener consumes the counter and
+ * skips. no time-based lock → snappy sync without echo loops.
  */
 export function useSyncScroll({
   editorSelector = ".mdv-editor .cm-scroller",
@@ -24,12 +24,20 @@ export function useSyncScroll({
     let editor: HTMLElement | null = null;
     let preview: HTMLElement | null = null;
     let rafId: number | undefined;
-    let lockUntil = 0;
+    const echo = { editor: 0, preview: 0 };
 
-    const makeSync = (src: HTMLElement, dst: HTMLElement) => {
+    const makeSync = (
+      src: HTMLElement,
+      dst: HTMLElement,
+      srcKey: "editor" | "preview",
+      dstKey: "editor" | "preview",
+    ) => {
       let pending = false;
       return () => {
-        if (performance.now() < lockUntil) return;
+        if (echo[srcKey] > 0) {
+          echo[srcKey] -= 1;
+          return;
+        }
         if (pending) return;
         pending = true;
         requestAnimationFrame(() => {
@@ -41,7 +49,7 @@ export function useSyncScroll({
           const target = ratio * dstRange;
           // skip if already close enough (avoids feedback work for tiny deltas)
           if (Math.abs(dst.scrollTop - target) < 1) return;
-          lockUntil = performance.now() + 100;
+          echo[dstKey] += 1;
           dst.scrollTop = target;
         });
       };
@@ -57,8 +65,8 @@ export function useSyncScroll({
         rafId = requestAnimationFrame(tryAttach);
         return;
       }
-      onEditor = makeSync(editor, preview);
-      onPreview = makeSync(preview, editor);
+      onEditor = makeSync(editor, preview, "editor", "preview");
+      onPreview = makeSync(preview, editor, "preview", "editor");
       editor.addEventListener("scroll", onEditor, { passive: true });
       preview.addEventListener("scroll", onPreview, { passive: true });
     };
