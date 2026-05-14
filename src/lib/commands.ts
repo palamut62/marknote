@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BookOpen,
   CircleHelp,
   Copy,
   FilePlus2,
@@ -9,6 +10,7 @@ import {
   FolderPlus,
   Leaf,
   Maximize2,
+  Minimize2,
   Monitor,
   Moon,
   PanelLeftClose,
@@ -36,6 +38,7 @@ export type CommandActions = {
   openFolder: () => void | Promise<void>;
   save: () => void;
   toggleSidebar: () => void;
+  toggleReading: () => void;
   showHelp: () => void;
   showWelcome: () => void;
   copyMarkdown: () => void | Promise<void>;
@@ -45,6 +48,7 @@ export type CommandActions = {
   recentFiles: readonly string[];
   hasActivePath: boolean;
   sidebarOpen: boolean;
+  readingMode: boolean;
 };
 
 const THEME_COMMANDS: Array<{ mode: ThemeMode; label: string; hint: string; icon: LucideIcon }> = [
@@ -70,40 +74,59 @@ export function buildCommands(actions: CommandActions): Command[] {
   return [
     ...recent,
     {
-      id: "new",
-      label: "new file",
-      hint: "start an untitled markdown buffer",
-      shortcut: "⌘N",
-      icon: FilePlus2,
-      action: actions.newFile,
-    },
-    {
-      id: "open-file",
-      label: "open file…",
-      hint: "pick a .md from your disk",
-      shortcut: "⌘O",
-      icon: FolderOpen,
-      action: actions.openFile,
-    },
-    {
       id: "open-folder",
       label: "open folder…",
-      hint: "load a folder into the sidebar",
+      hint: "load a folder of notes — turn the sidebar into your context library",
       shortcut: "⌘⇧O",
       icon: FolderPlus,
       action: actions.openFolder,
     },
     {
+      id: "open-file",
+      label: "open file…",
+      hint: "pick a single .md from disk",
+      shortcut: "⌘O",
+      icon: FolderOpen,
+      action: actions.openFile,
+    },
+    {
+      id: "new",
+      label: "new file",
+      hint: "start a blank markdown buffer",
+      shortcut: "⌘N",
+      icon: FilePlus2,
+      action: actions.newFile,
+    },
+    {
       id: "save",
       label: "save",
-      hint: actions.hasActivePath ? "write to disk" : "no file loaded — pick one first",
+      hint: actions.hasActivePath ? "write changes to disk" : "no file loaded — open one first",
       shortcut: "⌘S",
       icon: Save,
       action: actions.save,
     },
     {
+      id: "copy-markdown",
+      label: "copy markdown to clipboard",
+      hint: "share with claude — paste straight into chat",
+      shortcut: "⌘⇧C",
+      icon: Copy,
+      action: actions.copyMarkdown,
+    },
+    {
+      id: "toggle-reading",
+      label: actions.readingMode ? "exit reading mode" : "enter reading mode",
+      hint: actions.readingMode
+        ? "back to split editor + preview"
+        : "calm preview-only view — great for proofing before sharing",
+      shortcut: "⌘.",
+      icon: actions.readingMode ? Minimize2 : BookOpen,
+      action: actions.toggleReading,
+    },
+    {
       id: "toggle-sidebar",
       label: actions.sidebarOpen ? "hide sidebar" : "show sidebar",
+      hint: "your folder tree + file search",
       shortcut: "⌘B",
       icon: actions.sidebarOpen ? PanelLeftClose : PanelLeftOpen,
       action: actions.toggleSidebar,
@@ -132,17 +155,9 @@ export function buildCommands(actions: CommandActions): Command[] {
       action: () => setTransparency(false),
     },
     {
-      id: "copy-markdown",
-      label: "copy markdown to clipboard",
-      hint: actions.hasActivePath ? "copy current file's source" : "copy current buffer",
-      shortcut: "⌘⇧C",
-      icon: Copy,
-      action: actions.copyMarkdown,
-    },
-    {
       id: "export-pdf",
       label: "export to pdf",
-      hint: "opens the macOS print dialog · choose 'save as pdf'",
+      hint: "macOS print dialog → choose 'save as pdf'",
       shortcut: "⌘P",
       icon: FileDown,
       action: actions.exportToPdf,

@@ -353,6 +353,7 @@ export function App() {
           }
         },
         toggleSidebar: handleToggleSidebarFromCommands,
+        toggleReading: toggleReadingMode,
         showHelp,
         showWelcome,
         copyMarkdown,
@@ -362,6 +363,7 @@ export function App() {
         recentFiles,
         hasActivePath: activePath != null,
         sidebarOpen,
+        readingMode,
       }),
     [
       handleNewFile,
