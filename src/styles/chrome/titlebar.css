@@ -23,11 +23,22 @@
 }
 
 .mdv-titlebar__center {
+  /* absolute-center against the whole window so traffic-light reserved space
+     on the left doesn't visually shift the filename right of true center */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-width: 0;
+  max-width: 60%;
+  pointer-events: none;
+}
+
+.mdv-titlebar__center > * {
+  pointer-events: auto;
 }
 
 .mdv-titlebar__name {
