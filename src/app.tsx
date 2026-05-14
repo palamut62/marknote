@@ -241,11 +241,12 @@ export function App() {
 
     try {
       const dir = (await tempDir()).replace(/[\\/]+$/, "");
-      const safeName = (fileName ?? "marka-md-export")
+      const safeName = (fileName ?? "export")
         .replace(/\.md$/i, "")
         .replace(/[^\w.-]+/g, "-")
-        .slice(0, 60) || "marka-md-export";
-      const tempPath = `${dir}/${safeName}-${Date.now()}.html`;
+        .slice(0, 60) || "export";
+      // stable name → overwrites on each export instead of piling up in /tmp
+      const tempPath = `${dir}/marka-${safeName}.html`;
       await writeMarkdown(tempPath, html);
       await openPath(tempPath);
     } catch (err) {
