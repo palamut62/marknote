@@ -1,6 +1,6 @@
 [package]
 name = "marka"
-version = "0.1.3"
+version = "0.1.4"
 description = "marka.md — a local markdown editor for ai context bundles"
 authors = ["Matt Enarle"]
 edition = "2021"
