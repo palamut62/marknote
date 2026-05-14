@@ -15,7 +15,6 @@ import {
   PanelLeftOpen,
   Save,
   Sparkles,
-  SquareDashed,
   Sun,
 } from "lucide-react";
 import { basename, dirname } from "./files";
@@ -39,15 +38,13 @@ export type CommandActions = {
   toggleSidebar: () => void;
   showHelp: () => void;
   showWelcome: () => void;
-  copyBundle: () => void | Promise<void>;
-  clearSelection: () => void;
+  copyMarkdown: () => void | Promise<void>;
   exportToPdf: () => void;
   toggleFullscreen: () => void | Promise<void>;
   openRecent: (path: string) => void;
   recentFiles: readonly string[];
   hasActivePath: boolean;
   sidebarOpen: boolean;
-  selectedCount: number;
 };
 
 const THEME_COMMANDS: Array<{ mode: ThemeMode; label: string; hint: string; icon: LucideIcon }> = [
@@ -135,22 +132,12 @@ export function buildCommands(actions: CommandActions): Command[] {
       action: () => setTransparency(false),
     },
     {
-      id: "copy-bundle",
-      label: "copy bundle to clipboard",
-      hint:
-        actions.selectedCount > 0
-          ? `${actions.selectedCount} file${actions.selectedCount === 1 ? "" : "s"} selected · concat with separators`
-          : "select files in the sidebar first",
+      id: "copy-markdown",
+      label: "copy markdown to clipboard",
+      hint: actions.hasActivePath ? "copy current file's source" : "copy current buffer",
       shortcut: "⌘⇧C",
       icon: Copy,
-      action: actions.copyBundle,
-    },
-    {
-      id: "clear-selection",
-      label: "clear bundle selection",
-      hint: `${actions.selectedCount} selected`,
-      icon: SquareDashed,
-      action: actions.clearSelection,
+      action: actions.copyMarkdown,
     },
     {
       id: "export-pdf",

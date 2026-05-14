@@ -7,7 +7,6 @@ export const STORAGE_KEYS = {
   lastFolder: "mdview.lastFolder",
   lastFile: "mdview.lastFile",
   welcomed: "mdview.welcomed",
-  selectedPaths: "mdview.bundle.selected",
   recentFiles: "mdview.recent.files",
 } as const;
 
