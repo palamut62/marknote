@@ -4,6 +4,7 @@ import {
   Copy,
   FilePlus2,
   FileDown,
+  FileText,
   FolderOpen,
   FolderPlus,
   Leaf,
@@ -17,6 +18,7 @@ import {
   SquareDashed,
   Sun,
 } from "lucide-react";
+import { basename, dirname } from "./files";
 import { setThemeMode, setTransparency, type ThemeMode } from "./theme";
 
 export type Command = {
@@ -41,6 +43,8 @@ export type CommandActions = {
   clearSelection: () => void;
   exportToPdf: () => void;
   toggleFullscreen: () => void | Promise<void>;
+  openRecent: (path: string) => void;
+  recentFiles: readonly string[];
   hasActivePath: boolean;
   sidebarOpen: boolean;
   selectedCount: number;
@@ -56,7 +60,18 @@ const THEME_COMMANDS: Array<{ mode: ThemeMode; label: string; hint: string; icon
 ];
 
 export function buildCommands(actions: CommandActions): Command[] {
+  const recent = actions.recentFiles.slice(0, 5).map(
+    (path): Command => ({
+      id: `recent-${path}`,
+      label: basename(path),
+      hint: `recent · ${dirname(path)}`,
+      icon: FileText,
+      action: () => actions.openRecent(path),
+    }),
+  );
+
   return [
+    ...recent,
     {
       id: "new",
       label: "new file",

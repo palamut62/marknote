@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   lastFile: "mdview.lastFile",
   welcomed: "mdview.welcomed",
   selectedPaths: "mdview.bundle.selected",
+  recentFiles: "mdview.recent.files",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

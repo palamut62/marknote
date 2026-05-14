@@ -102,6 +102,10 @@ export function App() {
     STORAGE_KEYS.selectedPaths,
     [],
   );
+  const [recentFiles, setRecentFiles] = usePersistedState<string[]>(
+    STORAGE_KEYS.recentFiles,
+    [],
+  );
   const selectedPaths = useMemo(() => new Set(selectedPathsArray), [selectedPathsArray]);
 
   // ambient token estimate for the selection — shown in the status bar
@@ -188,6 +192,8 @@ export function App() {
         setSavedContent(content);
         setActivePath(path);
         setSaveStatus("idle");
+        // bump the file to the top of the recent list (dedupe, cap 8)
+        setRecentFiles((prev) => [path, ...prev.filter((p) => p !== path)].slice(0, 8));
       } catch (err) {
         console.error("marka.md: readMarkdown failed", err);
         setLoadError({ message: String(err), path });
@@ -359,6 +365,8 @@ export function App() {
       clearSelection,
       exportToPdf,
       toggleFullscreen,
+      loadFile,
+      recentFiles,
     ],
   );
   useShortcuts(shortcuts);
@@ -381,6 +389,8 @@ export function App() {
         clearSelection,
         exportToPdf,
         toggleFullscreen,
+        openRecent: (path: string) => void loadFile(path),
+        recentFiles,
         hasActivePath: activePath != null,
         sidebarOpen,
         selectedCount: selectedPathsArray.length,
