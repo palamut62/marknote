@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Sparkles, X } from "lucide-react";
 import { Button, Icon, Kbd, Overlay } from "@/components/primitives";
 import writeUrl from "@/assets/mascot/write.png";
@@ -30,6 +31,19 @@ const TIPS = [
 ];
 
 export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProps) {
+  useEffect(() => {
+    if (!open || !onReplayTutorial) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onClose();
+        onReplayTutorial();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onReplayTutorial, onClose]);
+
   return (
     <Overlay open={open} onClose={onClose} ariaLabel="how to use marka.md" variant="modal">
       <header className="mdv-help__header">

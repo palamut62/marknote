@@ -35,6 +35,20 @@
   animation: mdv-welcome-bob 4.5s ease-in-out infinite;
 }
 
+/* notebook + pen pngs ship with white backgrounds — blend them into the modal */
+:root[data-theme="latte"] .mdv-welcome__art,
+:root[data-theme="matcha"] .mdv-welcome__art,
+:root:not([data-theme]) .mdv-welcome__art {
+  mix-blend-mode: multiply;
+}
+
+:root[data-theme="frappe"] .mdv-welcome__art,
+:root[data-theme="macchiato"] .mdv-welcome__art,
+:root[data-theme="mocha"] .mdv-welcome__art {
+  mix-blend-mode: luminosity;
+  opacity: 0.92;
+}
+
 @keyframes mdv-welcome-bob {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
