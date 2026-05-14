@@ -1,4 +1,4 @@
-import { ChevronRight, FilePlus2, FileText, FolderOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Check, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button, Icon } from "@/components/primitives";
 import exciteUrl from "@/assets/mascot/excite.png";
 
@@ -13,6 +13,8 @@ type BreadcrumbProps = {
   onNewFile?: () => void;
   onOpenFile?: () => void;
   onOpenFolder?: () => void;
+  onCopyMarkdown?: () => void;
+  copyPulse?: boolean;
 };
 
 const MAX_SEGMENTS = 4;
@@ -45,6 +47,8 @@ export function Breadcrumb({
   onNewFile,
   onOpenFile,
   onOpenFolder,
+  onCopyMarkdown,
+  copyPulse = false,
 }: BreadcrumbProps) {
   const path = activePath ?? rootPath;
   const segments = path ? pathSegments(path) : [];
@@ -111,6 +115,22 @@ export function Breadcrumb({
       </div>
 
       <div className="mdv-breadcrumb__actions">
+        {onCopyMarkdown ? (
+          <button
+            type="button"
+            className={`mdv-copybtn${copyPulse ? " is-copied" : ""}`}
+            title={copyPulse ? "copied!" : "copy markdown (⌘⇧C)"}
+            aria-label={copyPulse ? "copied" : "copy markdown"}
+            onClick={onCopyMarkdown}
+          >
+            <span className="mdv-copybtn__icon mdv-copybtn__icon--copy" aria-hidden>
+              <Icon icon={Copy} size={12} strokeWidth={1.5} />
+            </span>
+            <span className="mdv-copybtn__icon mdv-copybtn__icon--check" aria-hidden>
+              <Icon icon={Check} size={13} strokeWidth={2} />
+            </span>
+          </button>
+        ) : null}
         <Button
           title="new file (⌘N)"
           aria-label="new file"

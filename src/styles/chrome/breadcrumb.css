@@ -112,6 +112,64 @@
   padding: 0 5px;
 }
 
+/* copy-markdown button — crossfade between Copy and Check icons on success */
+.mdv-copybtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--easing),
+    background var(--dur-fast) var(--easing),
+    transform var(--dur-fast) var(--easing);
+}
+
+.mdv-copybtn:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.mdv-copybtn:active {
+  transform: scale(0.92);
+}
+
+.mdv-copybtn__icon {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 180ms var(--easing),
+    transform 180ms var(--easing);
+}
+
+.mdv-copybtn__icon--copy { opacity: 1; transform: scale(1); }
+.mdv-copybtn__icon--check { opacity: 0; transform: scale(0.5); color: var(--accent); }
+
+.mdv-copybtn.is-copied {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  animation: mdv-copy-pulse 380ms var(--easing);
+}
+
+.mdv-copybtn.is-copied .mdv-copybtn__icon--copy { opacity: 0; transform: scale(0.5); }
+.mdv-copybtn.is-copied .mdv-copybtn__icon--check { opacity: 1; transform: scale(1); }
+
+@keyframes mdv-copy-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); }
+  100% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
 @keyframes mdv-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
