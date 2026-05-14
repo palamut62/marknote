@@ -19,11 +19,13 @@
 }
 
 .mdv-welcome__chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  margin-top: 14px;
-  padding: 4px 10px 4px 9px;
+  width: fit-content;
+  margin: 16px auto 0;
+  padding: 4px 11px 4px 9px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
   background: color-mix(in srgb, var(--accent) 8%, transparent);
