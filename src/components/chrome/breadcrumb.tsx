@@ -114,7 +114,7 @@ export function Breadcrumb({
         ) : null}
       </div>
 
-      <div className="mdv-breadcrumb__actions">
+      <div className="mdv-breadcrumb__actions" data-tauri-drag-region>
         {onCopyMarkdown ? (
           <button
             type="button"

@@ -82,7 +82,7 @@ export function TitleBar({
         ) : null}
       </div>
 
-      <div className="mdv-titlebar__actions">
+      <div className="mdv-titlebar__actions" data-tauri-drag-region>
         {readingMode && onCopyMarkdown ? (
           <button
             type="button"

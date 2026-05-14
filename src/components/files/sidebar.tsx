@@ -110,7 +110,7 @@ export function Sidebar({
       aria-hidden={!open}
     >
       <div className="mdv-sidebar__inner" style={{ width: `${width}px` }}>
-        <header className="mdv-sidebar__header">
+        <header className="mdv-sidebar__header" data-tauri-drag-region>
           <span className={`mdv-sidebar__title${rootPath ? "" : " is-empty"}`}>
             {rootPath ? basename(rootPath) : "no folder"}
           </span>
