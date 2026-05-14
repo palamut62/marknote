@@ -8,6 +8,7 @@ import {
   FileText,
   FolderOpen,
   FolderPlus,
+  Info,
   Leaf,
   Maximize2,
   Minimize2,
@@ -41,6 +42,7 @@ export type CommandActions = {
   toggleReading: () => void;
   showHelp: () => void;
   showWelcome: () => void;
+  showAbout: () => void;
   copyMarkdown: () => void | Promise<void>;
   exportToPdf: () => void;
   toggleFullscreen: () => void | Promise<void>;
@@ -184,6 +186,13 @@ export function buildCommands(actions: CommandActions): Command[] {
       hint: "reopen the onboarding modal",
       icon: Sparkles,
       action: actions.showWelcome,
+    },
+    {
+      id: "about",
+      label: "about marka.md",
+      hint: "version, license, links",
+      icon: Info,
+      action: actions.showAbout,
     },
   ];
 }

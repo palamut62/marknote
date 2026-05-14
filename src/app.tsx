@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AboutOverlay,
   Breadcrumb,
   CommandPalette,
   DropOverlay,
@@ -59,6 +60,7 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [welcomed, setWelcomed] = usePersistedState<boolean>(STORAGE_KEYS.welcomed, false);
   const [welcomeOpen, setWelcomeOpen] = useState(!welcomed);
   const [dragActive, setDragActive] = useState(false);
@@ -75,6 +77,10 @@ export function App() {
 
   const showHelp = useCallback(() => {
     setHelpOpen(true);
+  }, []);
+
+  const showAbout = useCallback(() => {
+    setAboutOpen(true);
   }, []);
 
   const handleToggleSidebarFromCommands = useCallback(() => {
@@ -519,6 +525,7 @@ export function App() {
         toggleReading: toggleReadingMode,
         showHelp,
         showWelcome,
+        showAbout,
         copyMarkdown,
         exportToPdf,
         toggleFullscreen,
@@ -541,6 +548,7 @@ export function App() {
       copyMarkdown,
       showHelp,
       showWelcome,
+      showAbout,
       exportToPdf,
       toggleFullscreen,
       handleToggleSidebarFromCommands,
@@ -640,6 +648,8 @@ export function App() {
         onClose={() => setHelpOpen(false)}
         onReplayTutorial={showWelcome}
       />
+
+      <AboutOverlay open={aboutOpen} onClose={() => setAboutOpen(false)} />
 
       <WelcomeOverlay
         open={welcomeOpen}
