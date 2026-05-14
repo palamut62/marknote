@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, FolderOpen, Sparkles } from "lucide-react";
 import { Button, Icon, Kbd, Overlay } from "@/components/primitives";
-import writeUrl from "@/assets/mascot/write.png";
+import logoUrl from "@/assets/mascot/mdview-transpa-bg.png";
 import notebookUrl from "@/assets/mascot/notebook.png";
 import penUrl from "@/assets/mascot/pen.png";
 import inspectUrl from "@/assets/mascot/inspect.png";
@@ -21,7 +21,7 @@ type Slide = {
 
 const SLIDES: Slide[] = [
   {
-    mascot: writeUrl,
+    mascot: logoUrl,
     title: "welcome to marka.md",
     body: (
       <>a local markdown editor — built for the notes you share with ai.</>
