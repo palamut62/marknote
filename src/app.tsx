@@ -3,6 +3,7 @@ import {
   AboutOverlay,
   Breadcrumb,
   CommandPalette,
+  ContextMenu,
   DropOverlay,
   Editor,
   HelpOverlay,
@@ -13,6 +14,9 @@ import {
   TitleBar,
   Toast,
   WelcomeOverlay,
+  type ContextMenuItem,
+  type FileEntry,
+  type NewEntry,
   type SaveStatus,
 } from "@/components/features";
 import { TooltipRoot } from "@/components/primitives";
@@ -24,6 +28,9 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import {
   basename,
   buildCommands,
+  createFolder,
+  createMarkdownFile,
+  dirname,
   estimateTokens,
   FS_CONFLICT,
   isMarkdownPath,
@@ -32,6 +39,7 @@ import {
   pickFolder,
   pickMarkdownFile,
   readMarkdown,
+  renameEntry,
   validateMarkdownFile,
   writeMarkdown,
   STORAGE_KEYS,
@@ -66,6 +74,14 @@ export function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [treeVersion, setTreeVersion] = useState(0);
   const bumpTree = useCallback(() => setTreeVersion((v) => v + 1), []);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    path: string;
+    isDir: boolean;
+  } | null>(null);
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [newEntry, setNewEntry] = useState<NewEntry | null>(null);
   const [welcomed, setWelcomed] = usePersistedState<boolean>(STORAGE_KEYS.welcomed, false);
   const [welcomeOpen, setWelcomeOpen] = useState(!welcomed);
   const [dragActive, setDragActive] = useState(false);
@@ -427,6 +443,101 @@ export function App() {
     [activePath, bumpTree, setActivePath],
   );
 
+  const handleContextMenu = useCallback((e: React.MouseEvent, entry: FileEntry) => {
+    setContextMenu({ x: e.clientX, y: e.clientY, path: entry.path, isDir: entry.isDir });
+  }, []);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const handleSubmitRename = useCallback(
+    async (src: string, newName: string) => {
+      setEditingPath(null);
+      try {
+        const newPath = await renameEntry(src, newName);
+        bumpTree();
+        if (activePath === src) setActivePath(newPath);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes(FS_CONFLICT)) {
+          setLoadError({ message: `${newName} already exists in this folder` });
+        } else {
+          console.error("marka.md: rename failed", err);
+          setLoadError({ message: `could not rename — ${msg}` });
+        }
+      }
+    },
+    [activePath, bumpTree, setActivePath],
+  );
+
+  const handleSubmitNew = useCallback(
+    async (parent: string, kind: "file" | "folder", name: string) => {
+      setNewEntry(null);
+      try {
+        if (kind === "folder") {
+          await createFolder(parent, name);
+        } else {
+          const created = await createMarkdownFile(parent, name);
+          // open the new (empty) file in the editor
+          const content = await readMarkdown(created);
+          setSource(content);
+          setSavedContent(content);
+          setActivePath(created);
+          setSaveStatus("idle");
+        }
+        bumpTree();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes(FS_CONFLICT)) {
+          setLoadError({ message: `${name} already exists in this folder` });
+        } else {
+          console.error("marka.md: create failed", err);
+          setLoadError({ message: `could not create — ${msg}` });
+        }
+      }
+    },
+    [bumpTree, setActivePath],
+  );
+
+  const contextItems = useMemo<ContextMenuItem[]>(() => {
+    if (!contextMenu) return [];
+    const { path, isDir } = contextMenu;
+    const items: ContextMenuItem[] = [
+      {
+        label: "rename",
+        onSelect: () => setEditingPath(path),
+      },
+    ];
+    if (isDir) {
+      items.push("divider");
+      items.push({
+        label: "new file",
+        onSelect: () => setNewEntry({ parent: path, kind: "file" }),
+      });
+      items.push({
+        label: "new folder",
+        onSelect: () => setNewEntry({ parent: path, kind: "folder" }),
+      });
+    } else {
+      items.push("divider");
+      items.push({
+        label: "reveal in finder",
+        onSelect: () => void openPath(dirname(path)),
+      });
+      items.push({
+        label: "open in default app",
+        onSelect: () => void openPath(path),
+      });
+    }
+    items.push("divider");
+    items.push({
+      label: "delete",
+      disabled: true,
+      hint: "soon",
+      onSelect: () => {},
+    });
+    return items;
+  }, [contextMenu]);
+
   // OS "Open With → marka.md" from Finder — Rust emits marka:open-file
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -646,6 +757,13 @@ export function App() {
               onOpenFolder={handleOpenFolder}
               onSelectFile={(path) => void loadFile(path)}
               onMove={handleMove}
+              onContextMenu={handleContextMenu}
+              editingPath={editingPath}
+              onSubmitRename={handleSubmitRename}
+              onCancelEdit={() => setEditingPath(null)}
+              newEntry={newEntry}
+              onSubmitNew={handleSubmitNew}
+              onCancelNew={() => setNewEntry(null)}
               treeVersion={treeVersion}
             />
             <Splitter
@@ -707,6 +825,14 @@ export function App() {
 
       <DropOverlay active={dragActive} />
       <TooltipRoot />
+
+      <ContextMenu
+        open={contextMenu != null}
+        x={contextMenu?.x ?? 0}
+        y={contextMenu?.y ?? 0}
+        items={contextItems}
+        onClose={closeContextMenu}
+      />
 
       <StatusBar
         fileName={displayName}

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FolderOpen, Search, X } from "lucide-react";
 import { Button, Icon } from "@/components/primitives";
-import { basename, dirname, walkMarkdownFiles, type FlatFileEntry } from "@/lib";
+import { basename, dirname, walkMarkdownFiles, type FileEntry, type FlatFileEntry } from "@/lib";
 import emptyTowerUrl from "@/assets/mascot/empty-m.png";
-import { FileTree } from "./file-tree";
+import { FileTree, type NewEntry } from "./file-tree";
 
 type SidebarProps = {
   open: boolean;
@@ -14,6 +14,13 @@ type SidebarProps = {
   onOpenFolder: () => void;
   onSelectFile: (path: string) => void;
   onMove?: (src: string, dstParent: string) => void;
+  onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
+  editingPath?: string | null;
+  onSubmitRename?: (src: string, newName: string) => void;
+  onCancelEdit?: () => void;
+  newEntry?: NewEntry | null;
+  onSubmitNew?: (parent: string, kind: "file" | "folder", name: string) => void;
+  onCancelNew?: () => void;
   treeVersion?: number;
 };
 
@@ -29,6 +36,13 @@ export function Sidebar({
   onOpenFolder,
   onSelectFile,
   onMove,
+  onContextMenu,
+  editingPath,
+  onSubmitRename,
+  onCancelEdit,
+  newEntry,
+  onSubmitNew,
+  onCancelNew,
   treeVersion = 0,
 }: SidebarProps) {
   const draggingRef = useRef(false);
@@ -183,6 +197,13 @@ export function Sidebar({
                 activePath={activePath}
                 onSelect={onSelectFile}
                 onMove={onMove}
+                onContextMenu={onContextMenu}
+                editingPath={editingPath}
+                onSubmitRename={onSubmitRename}
+                onCancelEdit={onCancelEdit}
+                newEntry={newEntry}
+                onSubmitNew={onSubmitNew}
+                onCancelNew={onCancelNew}
                 treeVersion={treeVersion}
               />
             )
