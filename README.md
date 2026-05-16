@@ -8,10 +8,12 @@
 
 <p align="center">
   <a href="https://markamd.vercel.app"><img src="https://img.shields.io/badge/site-markamd.vercel.app-orange?style=flat-square" alt="site" /></a>
-  <a href="https://github.com/mattenarle10/markamd/releases"><img src="https://img.shields.io/github/v/release/mattenarle10/markamd?include_prereleases&style=flat-square&color=orange&label=release" alt="release" /></a>
+  <a href="https://github.com/mattenarle10/markamd/releases/latest"><img src="https://img.shields.io/github/v/release/mattenarle10/markamd?style=flat-square&color=orange&label=release" alt="release" /></a>
+  <a href="https://github.com/mattenarle10/markamd/releases"><img src="https://img.shields.io/github/downloads/mattenarle10/markamd/total?style=flat-square&color=black&label=downloads" alt="downloads" /></a>
+  <a href="https://github.com/mattenarle10/markamd/stargazers"><img src="https://img.shields.io/github/stars/mattenarle10/markamd?style=flat-square&color=black&label=stars" alt="stars" /></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black?style=flat-square" alt="macos" />
   <img src="https://img.shields.io/badge/license-MIT-black?style=flat-square" alt="mit" />
-  <img src="https://img.shields.io/badge/status-pre--release-orange?style=flat-square" alt="status" />
+  <img src="https://img.shields.io/badge/notarized-Apple%20Developer-orange?style=flat-square" alt="notarized" />
 </p>
 
 a native macos markdown editor specialized for **ai context management**. live editor on the left (codemirror 6), rendered preview on the right (markdown-it + shiki + mermaid + katex). minimal chrome, full catppuccin + matcha themes, macos vibrancy, orange octopus mascot. ~10 mb bundle.
@@ -112,30 +114,30 @@ every folder exports its public api via `index.ts`. path alias `@/*` resolves to
 
 ## roadmap
 
-shipped:
-- branded shell + mascot + welcome flow with pre-release chip
+shipped (v1.0):
+- branded shell + mascot + welcome flow
 - codemirror editor + live preview + resizable splitter + scroll sync (counter-based echo prevention)
 - 5 themes (catppuccin family + matcha) + transparency
 - code blocks: copy-on-hover + shiki highlighting
 - mermaid diagrams + katex math
-- file tree sidebar with fuzzy search + persisted state
-- ⌘K command palette grouped by category + ⌘/ help overlay grouped by category
+- **ide-style sidebar** — drag-to-move files/folders, right-click rename / new folder, ⌘⌥Z undo
+- ⌘K command palette grouped by category + ⌘/ help overlay
 - reading mode (⌘.) with iA-style typography
 - find / replace (⌘F + ⌘G)
 - export to pdf (⌘P) with hardened print css
 - about overlay (version + mit + github + author)
 - apple-style toast (bottom-center, glass blur, auto-dismiss for info)
 - title-bar window-drag + tooltip viewport clamping
+- **notarized macOS build** signed with Apple Developer ID
+- **auto-updater** via tauri-plugin-updater + minisign-signed bundles
+- /changelog page on landing (fetched from gh releases)
 
-planned:
-- ide-style sidebar — drag-to-move files/folders, right-click rename / new folder
+planned (v1.x):
 - "context tray" — multi-file bundling, ⌘-click to stage, copy as one prompt blob
 - session restore — remember last folder + open file + scroll position
-- /changelog page on landing (fetched from gh releases)
 - faq section on landing
-- notarized v1.0 (apple developer enrollment pending)
-- auto-updater wiring (see [docs/auto-update.md](./docs/auto-update.md))
 - windows + linux builds
+- intel mac support (currently apple silicon only)
 
 ## privacy
 
