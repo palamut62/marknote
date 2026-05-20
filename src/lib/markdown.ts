@@ -3,7 +3,13 @@ import taskLists from "markdown-it-task-lists";
 import { createHighlighter, type Highlighter } from "shiki";
 import type { Theme } from "./theme";
 
-let mermaidCounter = 0;
+// random suffix per mermaid block — avoids id collisions when html re-renders
+// (which happens on save, reading-mode toggle, theme switch). Mermaid creates
+// a temporary <svg id="${id}-svg"> in document.body and tearing down the old
+// pre while the new render uses the same id was causing silent failures.
+function mermaidId(): string {
+  return `mdv-mermaid-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 const LANGS = ["markdown", "ts", "tsx", "js", "jsx", "json", "rust", "bash", "css", "html", "python", "go"];
 const THEMES = {
@@ -12,6 +18,9 @@ const THEMES = {
   macchiato: "catppuccin-macchiato",
   mocha: "catppuccin-mocha",
   matcha: "vitesse-light",
+  kanagawa: "kanagawa-wave",
+  "rose-pine": "rose-pine",
+  ayu: "ayu-dark",
 } as const;
 
 let highlighterPromise: Promise<Highlighter> | null = null;
@@ -20,7 +29,7 @@ let highlighter: Highlighter | null = null;
 function getHighlighter(): Promise<Highlighter> {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
-      themes: [THEMES.latte, THEMES.frappe, THEMES.macchiato, THEMES.mocha, THEMES.matcha],
+      themes: Object.values(THEMES),
       langs: LANGS,
     })
       .then((h) => {
@@ -48,7 +57,7 @@ const md = new MarkdownIt({
   highlight: (code, lang) => {
     // mermaid blocks bypass shiki — Preview component renders them as svg
     if (lang === "mermaid") {
-      const id = `mdv-mermaid-${++mermaidCounter}`;
+      const id = mermaidId();
       const encoded = code
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -61,13 +70,10 @@ const md = new MarkdownIt({
     try {
       return highlighter.codeToHtml(code, {
         lang: language,
-        themes: {
-          latte: THEMES.latte,
-          frappe: THEMES.frappe,
-          macchiato: THEMES.macchiato,
-          mocha: THEMES.mocha,
-          matcha: THEMES.matcha,
-        },
+        // pass full THEMES map so EVERY registered theme gets a css-var variant
+        // (kanagawa / rose-pine / ayu were missing before, so code blocks fell
+        // back to no-color when active theme didn't have a variant).
+        themes: THEMES,
         defaultColor: false,
       });
     } catch {
