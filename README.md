@@ -155,6 +155,18 @@ ideas, bugs, or just want to say hi?
 
 i read everything. PRs welcome.
 
+## support
+
+marka.md is free + MIT, and intends to stay that way.
+
+if it saves you time wrangling AI context, the highest-leverage things you can do (in order):
+
+1. ⭐ [star the repo](https://github.com/mattenarle10/markamd) — biggest single signal
+2. 🗣️ tell another dev / share it on your timeline
+3. 💖 [sponsor on GitHub](https://github.com/sponsors/mattenarle10) — funds the late-night ship sessions
+
+all three are appreciated. zero of them are required. 🐙
+
 ## license
 
 mit · matt enarle ([@mattenarle10](https://github.com/mattenarle10))
