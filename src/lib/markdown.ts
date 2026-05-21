@@ -8,27 +8,19 @@ function mermaidId(): string {
   return `mdv-mermaid-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// shiki lazy-loads grammars; registering all here for eager load.
+// allowed langs — shiki chunks load on first use via ensureLangsLoaded.
 const LANGS = [
-  // existing
   "markdown", "ts", "tsx", "js", "jsx", "json", "rust", "bash", "css", "html", "python", "go",
-  // systems / compiled
   "c", "cpp", "csharp", "objective-c",
-  // jvm / .net
   "java", "kotlin", "scala", "groovy",
-  // mobile / swift
   "swift",
-  // scripting
   "ruby", "php", "lua", "perl", "r", "elixir", "haskell",
-  // data / config
   "sql", "yaml", "toml", "xml", "ini",
-  // shell / devops
   "shellscript", "powershell", "dockerfile", "makefile", "nginx",
-  // diff / vcs
   "diff", "git-commit",
-  // misc commonly-pasted
   "graphql", "protobuf", "regex", "vim", "jsonc",
-];
+] as const;
+
 const THEMES = {
   latte: "catppuccin-latte",
   frappe: "catppuccin-frappe",
@@ -40,15 +32,16 @@ const THEMES = {
   ayu: "ayu-dark",
 } as const;
 
-let highlighterPromise: Promise<Highlighter> | null = null;
 let highlighter: Highlighter | null = null;
+let highlighterPromise: Promise<Highlighter> | null = null;
+const loadedLangs = new Set<string>();
+const loadedThemes = new Set<string>();
+// read synchronously inside md.highlight; updated before md.render in renderMarkdown.
+let activeShikiTheme: string = THEMES.latte;
 
 function getHighlighter(): Promise<Highlighter> {
   if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({
-      themes: Object.values(THEMES),
-      langs: LANGS,
-    })
+    highlighterPromise = createHighlighter({ themes: [], langs: [] })
       .then((h) => {
         highlighter = h;
         return h;
@@ -62,9 +55,32 @@ function getHighlighter(): Promise<Highlighter> {
   return highlighterPromise;
 }
 
-void getHighlighter().catch(() => {
-  // already logged in getHighlighter
-});
+const FENCE_RE = /^[ \t]*```([a-zA-Z0-9_+\-]+)/gm;
+function extractLangs(src: string): string[] {
+  const found = new Set<string>();
+  FENCE_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = FENCE_RE.exec(src)) !== null) {
+    const lang = m[1];
+    if ((LANGS as readonly string[]).includes(lang)) found.add(lang);
+  }
+  return [...found];
+}
+
+async function ensureThemeLoaded(h: Highlighter, shikiTheme: string): Promise<void> {
+  if (loadedThemes.has(shikiTheme)) return;
+  await h.loadTheme(shikiTheme as Parameters<Highlighter["loadTheme"]>[0]);
+  loadedThemes.add(shikiTheme);
+}
+
+async function ensureLangsLoaded(h: Highlighter, langs: string[]): Promise<void> {
+  const toLoad = langs.filter((l) => !loadedLangs.has(l));
+  if (toLoad.length === 0) return;
+  await Promise.all(
+    toLoad.map((l) => h.loadLanguage(l as Parameters<Highlighter["loadLanguage"]>[0])),
+  );
+  toLoad.forEach((l) => loadedLangs.add(l));
+}
 
 const md = new MarkdownIt({
   html: false,
@@ -87,9 +103,7 @@ const md = new MarkdownIt({
     try {
       return highlighter.codeToHtml(code, {
         lang: language,
-        // pass all themes so every variant gets a css-var; defaultColor:false uses them.
-        themes: THEMES,
-        defaultColor: false,
+        theme: activeShikiTheme,
       });
     } catch {
       return "";
@@ -103,6 +117,11 @@ export async function ensureMarkdownReady(): Promise<void> {
   await getHighlighter();
 }
 
-export function renderMarkdown(src: string, _theme: Theme): string {
+export async function renderMarkdown(src: string, theme: Theme): Promise<string> {
+  const h = await getHighlighter();
+  const shikiTheme = THEMES[theme];
+  await ensureThemeLoaded(h, shikiTheme);
+  await ensureLangsLoaded(h, extractLangs(src));
+  activeShikiTheme = shikiTheme;
   return md.render(src);
 }

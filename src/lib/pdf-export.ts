@@ -1,6 +1,7 @@
 import { tempDir } from "@tauri-apps/api/path";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { basename, writeMarkdown } from "./files";
+import { renderMarkdown } from "./markdown";
 
 // Tauri 2's WKWebView no-ops window.print(). We clone the rendered preview
 // article + wrap in a standalone html doc, write to OS temp, open in default
@@ -81,14 +82,8 @@ const PRINT_STYLES = `
   img { max-width: 100%; height: auto; border-radius: 6px; break-inside: avoid; }
   pre code { background: transparent; padding: 0; font-size: inherit; border-radius: 0; }
   pre.shiki, pre.shiki * { font-family: inherit; }
-  /* shiki spans carry --shiki-{theme} vars inline; pick latte for print. */
-  .shiki, .shiki span {
-    background-color: transparent !important;
-    color: var(--shiki-latte) !important;
-    font-style: var(--shiki-latte-font-style, inherit) !important;
-    font-weight: var(--shiki-latte-font-weight, inherit) !important;
-    text-decoration: var(--shiki-latte-text-decoration, inherit) !important;
-  }
+  /* shiki spans carry inline color from the latte render — strip backgrounds for clean print */
+  .shiki, .shiki span { background-color: transparent !important; }
   blockquote {
     border-left: 3px solid var(--paccent);
     padding-left: 16px;
@@ -140,13 +135,14 @@ export async function exportPreviewToPdf({ source, activePath }: ExportOpts): Pr
   if (!source.trim()) {
     throw new PdfExportError("empty", "nothing to export. open or write some markdown first.");
   }
-  const article = document.querySelector<HTMLElement>(".mdv-prose");
-  if (!article) {
-    throw new PdfExportError("no-preview", "preview isn't rendered yet. try again in a moment.");
-  }
 
   const fileName = activePath ? basename(activePath) : undefined;
   const title = fileName ?? "marka.md export";
+
+  // Always render with latte for PDF — guarantees light, readable colors on
+  // white paper regardless of the user's current app theme. Lazy-loads the
+  // latte shiki theme on first non-latte export (~150-300ms one-time tax).
+  const latteHtml = await renderMarkdown(source, "latte");
 
   const html = `<!doctype html>
 <html lang="en">
@@ -158,7 +154,7 @@ export async function exportPreviewToPdf({ source, activePath }: ExportOpts): Pr
 </head>
 <body>
   <main class="doc">
-    ${article.outerHTML}
+    <article class="mdv-prose" data-theme="latte">${latteHtml}</article>
   </main>
   <script>
     window.addEventListener("load", () => {

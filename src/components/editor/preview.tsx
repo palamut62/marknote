@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ensureMarkdownReady, renderMarkdown, useTheme } from "@/lib";
 import inspectUrl from "@/assets/mascot/inspect.png";
 
@@ -133,7 +133,20 @@ export function Preview({ source }: PreviewProps) {
     };
   }, []);
 
-  const html = useMemo(() => renderMarkdown(source, theme), [source, theme, ready]);
+  const [html, setHtml] = useState("");
+
+  // renderMarkdown is async (lazy-loads shiki themes + langs on demand).
+  // Cancelled flag guards against stale renders on rapid file/theme switches.
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    void renderMarkdown(source, theme).then((h) => {
+      if (!cancelled) setHtml(h);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, theme, ready]);
 
   // Imperatively set innerHTML — React's dangerouslySetInnerHTML re-applies the
   // string on each parent re-render even when the value is unchanged, which

@@ -143,74 +143,10 @@
   opacity: 1;
 }
 
-/* shiki dual-theme: spans carry --shiki-{theme} vars; pick by data-theme */
+/* shiki single-theme: inline span styles drive code colors */
 .mdv-prose .shiki,
 .mdv-prose .shiki span {
   background-color: transparent !important;
-}
-
-.mdv-prose[data-theme="latte"] .shiki,
-.mdv-prose[data-theme="latte"] .shiki span {
-  color: var(--shiki-latte) !important;
-  font-style: var(--shiki-latte-font-style, inherit) !important;
-  font-weight: var(--shiki-latte-font-weight, inherit) !important;
-  text-decoration: var(--shiki-latte-text-decoration, inherit) !important;
-}
-
-.mdv-prose[data-theme="frappe"] .shiki,
-.mdv-prose[data-theme="frappe"] .shiki span {
-  color: var(--shiki-frappe) !important;
-  font-style: var(--shiki-frappe-font-style, inherit) !important;
-  font-weight: var(--shiki-frappe-font-weight, inherit) !important;
-  text-decoration: var(--shiki-frappe-text-decoration, inherit) !important;
-}
-
-.mdv-prose[data-theme="macchiato"] .shiki,
-.mdv-prose[data-theme="macchiato"] .shiki span {
-  color: var(--shiki-macchiato) !important;
-  font-style: var(--shiki-macchiato-font-style, inherit) !important;
-  font-weight: var(--shiki-macchiato-font-weight, inherit) !important;
-  text-decoration: var(--shiki-macchiato-text-decoration, inherit) !important;
-}
-
-.mdv-prose[data-theme="mocha"] .shiki,
-.mdv-prose[data-theme="mocha"] .shiki span {
-  color: var(--shiki-mocha) !important;
-  font-style: var(--shiki-mocha-font-style, inherit) !important;
-  font-weight: var(--shiki-mocha-font-weight, inherit) !important;
-  text-decoration: var(--shiki-mocha-text-decoration, inherit) !important;
-}
-
-.mdv-prose[data-theme="matcha"] .shiki,
-.mdv-prose[data-theme="matcha"] .shiki span {
-  color: var(--shiki-matcha) !important;
-  font-style: var(--shiki-matcha-font-style, inherit) !important;
-  font-weight: var(--shiki-matcha-font-weight, inherit) !important;
-  text-decoration: var(--shiki-matcha-text-decoration, inherit) !important;
-}
-
-.mdv-prose[data-theme="kanagawa"] .shiki,
-.mdv-prose[data-theme="kanagawa"] .shiki span {
-  color: var(--shiki-kanagawa) !important;
-  font-style: var(--shiki-kanagawa-font-style, inherit) !important;
-  font-weight: var(--shiki-kanagawa-font-weight, inherit) !important;
-  text-decoration: var(--shiki-kanagawa-text-decoration, inherit) !important;
-}
-
-.mdv-prose[data-theme="rose-pine"] .shiki,
-.mdv-prose[data-theme="rose-pine"] .shiki span {
-  color: var(--shiki-rose-pine) !important;
-  font-style: var(--shiki-rose-pine-font-style, inherit) !important;
-  font-weight: var(--shiki-rose-pine-font-weight, inherit) !important;
-  text-decoration: var(--shiki-rose-pine-text-decoration, inherit) !important;
-}
-
-.mdv-prose[data-theme="ayu"] .shiki,
-.mdv-prose[data-theme="ayu"] .shiki span {
-  color: var(--shiki-ayu) !important;
-  font-style: var(--shiki-ayu-font-style, inherit) !important;
-  font-weight: var(--shiki-ayu-font-weight, inherit) !important;
-  text-decoration: var(--shiki-ayu-text-decoration, inherit) !important;
 }
 
 /* mermaid diagram container */
