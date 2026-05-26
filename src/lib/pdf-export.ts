@@ -2,6 +2,7 @@ import { tempDir } from "@tauri-apps/api/path";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { basename, writeMarkdown } from "./files";
 import { renderMarkdown } from "./markdown";
+import { renderMermaidInHtml } from "./mermaid";
 
 // Tauri 2's WKWebView no-ops window.print(). We render a standalone html doc,
 // write to OS temp, then open in the default browser. Browser auto-prints on
@@ -152,7 +153,8 @@ export async function exportPreviewToPdf({ source, activePath }: ExportOpts): Pr
   // Always render with latte for PDF — guarantees light, readable colors on
   // white paper regardless of the user's current app theme. Lazy-loads the
   // latte shiki theme on first non-latte export (~150-300ms one-time tax).
-  const latteHtml = await renderMarkdown(source, "latte");
+  const renderedHtml = await renderMarkdown(source, "latte");
+  const latteHtml = await renderMermaidInHtml(renderedHtml, "default");
 
   const html = `<!doctype html>
 <html lang="en">
