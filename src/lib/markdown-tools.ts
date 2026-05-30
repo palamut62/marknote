@@ -104,82 +104,132 @@ function toggleInline(
   const ml = marker.length;
   const selected = source.slice(range.from, range.to);
 
-  // Case A: the markers are part of the selection — strip them.
+  // Case A: the markers are part of the selection — strip them. We require the
+  // inner text NOT to begin/end with the same marker so that literal underscore
+  // (snake_case / __dunder__) or `**`-laden content isn't mistaken for emphasis
+  // and silently mangled — e.g. selecting `__init__` must not become `_init_`.
   if (selected.length >= ml * 2 && selected.startsWith(marker) && selected.endsWith(marker)) {
     const inner = selected.slice(ml, selected.length - ml);
-    return makeEdit(source, range, inner, { from: range.from, to: range.from + inner.length });
+    if (!inner.startsWith(marker) && !inner.endsWith(marker)) {
+      return makeEdit(source, range, inner, { from: range.from, to: range.from + inner.length });
+    }
   }
 
-  // Case B: the markers hug the selection — strip the surrounding pair.
+  // Case B: the markers hug the selection — strip the surrounding pair. Guard
+  // against runs of the marker char (e.g. selecting `init` inside `__init__`):
+  // if the char just outside the pair is also the marker char, it's not a clean
+  // emphasis wrapper, so leave the literal underscores/asterisks alone.
   if (
     range.from >= ml &&
     source.slice(range.from - ml, range.from) === marker &&
-    source.slice(range.to, range.to + ml) === marker
+    source.slice(range.to, range.to + ml) === marker &&
+    source[range.from - ml - 1] !== marker[0] &&
+    source[range.to + ml] !== marker[marker.length - 1]
   ) {
     const outer = { from: range.from - ml, to: range.to + ml };
     return makeEdit(source, outer, selected, { from: outer.from, to: outer.from + selected.length });
   }
 
-  // Otherwise wrap, leaving the inner content selected so a second press undoes it.
+  // Otherwise wrap, leaving the inner content selected so a second press hits
+  // Case B above (markers now hug the selection) and cleanly toggles it off.
   const content = selected || placeholder;
   const insert = `${marker}${content}${marker}`;
   const innerFrom = range.from + ml;
   return makeEdit(source, range, insert, { from: innerFrom, to: innerFrom + content.length });
 }
 
+type SpanStyle = { color?: string; background?: string };
+
+type StyledWrapper = SpanStyle & { from: number; to: number; text: string };
+
+/** Parse a `style="…"` attribute body into the color / background it carries. */
+function parseStyle(style: string): SpanStyle {
+  const out: SpanStyle = {};
+  for (const decl of style.split(";")) {
+    const idx = decl.indexOf(":");
+    if (idx === -1) continue;
+    const key = decl.slice(0, idx).trim().toLowerCase();
+    const value = decl.slice(idx + 1).trim();
+    if (!value) continue;
+    if (key === "color") out.color = value;
+    else if (key === "background" || key === "background-color") out.background = value;
+  }
+  return out;
+}
+
 /**
- * Wrap/unwrap a selection with an inline HTML tag (`<span style="color: …">` or
- * `<mark style="background: …">`). Re-applying with the SAME color removes it;
- * applying with a DIFFERENT color recolors in place (no nesting).
+ * Find a styled inline wrapper (`<span style="…">` we emit, or a legacy
+ * `<mark style="…">`) that either IS the selection or hugs it. Returns the full
+ * tag range, its inner text, and the styles it carries.
  */
-function toggleColorTag(
-  source: string,
-  range: TextRange,
-  tag: "span" | "mark",
-  attr: "color" | "background",
-  color: string,
-): MarkdownEdit {
-  const open = (c: string) => `<${tag} style="${attr}: ${c}">`;
-  const close = `</${tag}>`;
-  const colorRe = "#[0-9a-fA-F]{6}";
+function findStyledWrapper(source: string, range: TextRange): StyledWrapper | null {
   const selected = source.slice(range.from, range.to);
-
-  // Detect an existing wrapper — either fully selected or hugging the selection.
-  const wholeRe = new RegExp(`^<${tag} style="${attr}: (${colorRe})">([\\s\\S]*)</${tag}>$`);
-  const whole = wholeRe.exec(selected);
-  let wrapRange: TextRange | null = null;
-  let inner = "";
-  let currentColor = "";
-
-  if (whole) {
-    wrapRange = range;
-    currentColor = whole[1];
-    inner = whole[2];
-  } else if (source.slice(range.to, range.to + close.length) === close) {
-    const openRe = new RegExp(`<${tag} style="${attr}: (${colorRe})">$`);
-    const om = openRe.exec(source.slice(0, range.from));
-    if (om) {
-      wrapRange = { from: om.index, to: range.to + close.length };
-      currentColor = om[1];
-      inner = selected;
+  for (const tag of ["span", "mark"] as const) {
+    const exact = new RegExp(`^<${tag} style="([^"]*)">([\\s\\S]*)</${tag}>$`).exec(selected);
+    if (exact) {
+      return { from: range.from, to: range.to, text: exact[2], ...parseStyle(exact[1]) };
     }
   }
-
-  if (wrapRange) {
-    // same color → strip the wrapper; different color → recolor in place.
-    if (currentColor.toLowerCase() === color.toLowerCase()) {
-      return makeEdit(source, wrapRange, inner, { from: wrapRange.from, to: wrapRange.from + inner.length });
+  for (const tag of ["span", "mark"] as const) {
+    const close = `</${tag}>`;
+    if (source.slice(range.to, range.to + close.length) === close) {
+      const om = new RegExp(`<${tag} style="([^"]*)">$`).exec(source.slice(0, range.from));
+      if (om) {
+        return {
+          from: om.index,
+          to: range.to + close.length,
+          text: selected,
+          ...parseStyle(om[1]),
+        };
+      }
     }
-    const insert = `${open(color)}${inner}${close}`;
-    const innerFrom = wrapRange.from + open(color).length;
-    return makeEdit(source, wrapRange, insert, { from: innerFrom, to: innerFrom + inner.length });
+  }
+  return null;
+}
+
+/** Re-emit a styled span from text + styles, or unwrap to plain text when empty. */
+function rebuildSpan(source: string, range: TextRange, text: string, styles: SpanStyle): MarkdownEdit {
+  const parts: string[] = [];
+  if (styles.color) parts.push(`color: ${styles.color}`);
+  if (styles.background) parts.push(`background: ${styles.background}`);
+  if (parts.length === 0) {
+    // no styles left → drop the wrapper entirely
+    return makeEdit(source, range, text, { from: range.from, to: range.from + text.length });
+  }
+  const open = `<span style="${parts.join("; ")}">`;
+  const insert = `${open}${text}</span>`;
+  const innerFrom = range.from + open.length;
+  return makeEdit(source, range, insert, { from: innerFrom, to: innerFrom + text.length });
+}
+
+/**
+ * Apply text color or highlight as ONE combined `<span>`. Color and highlight
+ * share a single wrapper (e.g. `<span style="color: …; background: …">`) so they
+ * compose cleanly instead of nesting tags. Re-applying the SAME value clears just
+ * that property; a different value updates it; clearing the last property unwraps.
+ */
+function applyStyledSpan(
+  source: string,
+  range: TextRange,
+  prop: keyof SpanStyle,
+  value: string,
+): MarkdownEdit {
+  const wrap = findStyledWrapper(source, range);
+  if (wrap) {
+    const styles: SpanStyle = { color: wrap.color, background: wrap.background };
+    const current = styles[prop];
+    if (current && current.toLowerCase() === value.toLowerCase()) {
+      delete styles[prop]; // same value → toggle this property off
+    } else {
+      styles[prop] = value;
+    }
+    return rebuildSpan(source, { from: wrap.from, to: wrap.to }, wrap.text, styles);
   }
 
   // Nothing to wrap without a selection.
+  const selected = source.slice(range.from, range.to);
   if (!selected) return keepRange(source, range);
-  const insert = `${open(color)}${selected}${close}`;
-  const innerFrom = range.from + open(color).length;
-  return makeEdit(source, range, insert, { from: innerFrom, to: innerFrom + selected.length });
+  return rebuildSpan(source, range, selected, { [prop]: value });
 }
 
 /** Wrap/unwrap a selection that may already be a markdown link or image. */
@@ -252,9 +302,9 @@ export function applyMarkdownAction(
       return replaceRange(source, range, `\`\`\`\n${selected}\n\`\`\``);
     }
     case "text-color":
-      return toggleColorTag(source, range, "span", "color", safeHexColor(options.textColor, "#2563eb"));
+      return applyStyledSpan(source, range, "color", safeHexColor(options.textColor, "#2563eb"));
     case "highlight":
-      return toggleColorTag(source, range, "mark", "background", safeHexColor(options.highlightColor, "#fde047"));
+      return applyStyledSpan(source, range, "background", safeHexColor(options.highlightColor, "#fde047"));
     case "link":
       return toggleLink(source, range, false);
     case "image":

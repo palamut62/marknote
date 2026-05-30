@@ -43,6 +43,15 @@ test("italic does not toggle bold markers off", () => {
   expect(applyMarkdownAction("**x**", at("**x**", 0, 5), "italic").next).toBe("_**x**_");
 });
 
+test("italic does not eat literal underscores in __dunder__ identifiers", () => {
+  // selecting the whole `__init__` must not be mistaken for emphasis
+  const whole = applyMarkdownAction("__init__", at("__init__", 0, 8), "italic");
+  expect(whole.next).toBe("___init___");
+  // selecting just `init` inside `__init__` must not strip the surrounding pair
+  const inner = applyMarkdownAction("__init__", at("__init__", 2, 6), "italic");
+  expect(inner.next).toBe("___init___");
+});
+
 test("bold applied twice in a row returns to the original text", () => {
   const first = applyMarkdownAction("hi", at("hi", 0, 2), "bold");
   expect(first.next).toBe("**hi**");
@@ -90,9 +99,9 @@ test("color removal works when only the inner text is selected", () => {
   expect(edit.next).toBe("word");
 });
 
-test("highlight wraps and toggles off with mark", () => {
+test("highlight wraps and toggles off", () => {
   const edit = applyMarkdownAction("hot", at("hot", 0, 3), "highlight", { highlightColor: "#fde047" });
-  expect(edit.next).toBe('<mark style="background: #fde047">hot</mark>');
+  expect(edit.next).toBe('<span style="background: #fde047">hot</span>');
   const off = applyMarkdownAction(edit.next, at(edit.next, 0, edit.next.length), "highlight", {
     highlightColor: "#fde047",
   });
@@ -102,6 +111,55 @@ test("highlight wraps and toggles off with mark", () => {
 test("invalid color falls back to the default hex", () => {
   const edit = applyMarkdownAction("x", at("x", 0, 1), "text-color", { textColor: "red" });
   expect(edit.next).toBe('<span style="color: #2563eb">x</span>');
+});
+
+test("color then highlight combine into a single span", () => {
+  const colored = applyMarkdownAction("word", at("word", 0, 4), "text-color", { textColor: "#ff0000" });
+  expect(colored.next).toBe('<span style="color: #ff0000">word</span>');
+  // colored.selection points at the inner `word`
+  const both = applyMarkdownAction(colored.next, colored.selection, "highlight", {
+    highlightColor: "#fde047",
+  });
+  expect(both.next).toBe('<span style="color: #ff0000; background: #fde047">word</span>');
+});
+
+test("highlight then color also combine into one span", () => {
+  const hl = applyMarkdownAction("word", at("word", 0, 4), "highlight", { highlightColor: "#fde047" });
+  const both = applyMarkdownAction(hl.next, hl.selection, "text-color", { textColor: "#ff0000" });
+  // style order is normalized: color always precedes background
+  expect(both.next).toBe('<span style="color: #ff0000; background: #fde047">word</span>');
+});
+
+test("removing one of two combined styles keeps the other", () => {
+  const combined = '<span style="color: #ff0000; background: #fde047">word</span>';
+  const edit = applyMarkdownAction(combined, at(combined, 0, combined.length), "text-color", {
+    textColor: "#ff0000",
+  });
+  expect(edit.next).toBe('<span style="background: #fde047">word</span>');
+});
+
+test("recoloring a combined span updates only the color", () => {
+  const combined = '<span style="color: #ff0000; background: #fde047">word</span>';
+  const edit = applyMarkdownAction(combined, at(combined, 0, combined.length), "text-color", {
+    textColor: "#0000ff",
+  });
+  expect(edit.next).toBe('<span style="color: #0000ff; background: #fde047">word</span>');
+});
+
+test("removing the last style unwraps a combined span back to text", () => {
+  const colorOnly = '<span style="color: #ff0000">word</span>';
+  const edit = applyMarkdownAction(colorOnly, at(colorOnly, 0, colorOnly.length), "text-color", {
+    textColor: "#ff0000",
+  });
+  expect(edit.next).toBe("word");
+});
+
+test("highlight removal works on a legacy mark tag", () => {
+  const legacy = '<mark style="background: #fde047">word</mark>';
+  const edit = applyMarkdownAction(legacy, at(legacy, 0, legacy.length), "highlight", {
+    highlightColor: "#fde047",
+  });
+  expect(edit.next).toBe("word");
 });
 
 // ---------------------------------------------------------------------------

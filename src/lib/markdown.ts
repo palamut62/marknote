@@ -115,17 +115,38 @@ const md = new MarkdownIt({
 md.use(taskLists, { enabled: false, label: true });
 md.use(mark);
 
+// Allow only a tightly-validated set of inline color tags through the otherwise
+// HTML-escaped output: `<span>` carrying color and/or background (combined), plus
+// legacy `<mark style="background: …">`. Anything else stays escaped (shown as
+// literal text) so this stays an XSS-safe whitelist.
+const COLOR_VALUE = /^(#[0-9a-fA-F]{6}|var\(--mdv-user-text-color\))$/;
+const HIGHLIGHT_VALUE = /^(#[0-9a-fA-F]{6}|var\(--mdv-user-highlight-color\))$/;
+
+function isSafeStyle(style: string): boolean {
+  const decls = style.split(";").map((d) => d.trim()).filter(Boolean);
+  if (decls.length === 0) return false;
+  return decls.every((decl) => {
+    const idx = decl.indexOf(":");
+    if (idx === -1) return false;
+    const key = decl.slice(0, idx).trim().toLowerCase();
+    const value = decl.slice(idx + 1).trim();
+    if (key === "color") return COLOR_VALUE.test(value);
+    if (key === "background" || key === "background-color") return HIGHLIGHT_VALUE.test(value);
+    return false;
+  });
+}
+
 function enableSafeColorTags(html: string): string {
-  const colorValue = "(#[0-9a-fA-F]{6}|var\\(--mdv-user-text-color\\))";
-  const highlightValue = "(#[0-9a-fA-F]{6}|var\\(--mdv-user-highlight-color\\))";
   return html
     .replace(
-      new RegExp(`&lt;span style=&quot;color: ${colorValue}&quot;&gt;([\\s\\S]*?)&lt;\\/span&gt;`, "g"),
-      '<span style="color: $1">$2</span>',
+      /&lt;span style=&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/span&gt;/g,
+      (match, style: string, inner: string) =>
+        isSafeStyle(style) ? `<span style="${style}">${inner}</span>` : match,
     )
     .replace(
-      new RegExp(`&lt;mark style=&quot;background: ${highlightValue}&quot;&gt;([\\s\\S]*?)&lt;\\/mark&gt;`, "g"),
-      '<mark style="background: $1">$2</mark>',
+      /&lt;mark style=&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/mark&gt;/g,
+      (match, style: string, inner: string) =>
+        isSafeStyle(style) ? `<mark style="${style}">${inner}</mark>` : match,
     );
 }
 
