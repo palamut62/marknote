@@ -1,14 +1,11 @@
-import logoUrl from "@/assets/mascot/mdview-transpa-bg.png";
+import logoUrl from "@/assets/brand/marka-app-icon.png";
 
 type LogoProps = {
   size?: number;
   title?: string;
 };
 
-/**
- * marka.md brand mark — the M-shaped cube tower with the orange octopus mascot.
- */
-export function Logo({ size = 22, title = "marka.md" }: LogoProps) {
+export function Logo({ size = 22, title = "marknote" }: LogoProps) {
   return (
     <img
       src={logoUrl}

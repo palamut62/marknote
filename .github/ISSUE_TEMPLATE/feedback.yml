@@ -24,6 +24,6 @@ body:
   - type: textarea
     id: context
     attributes:
-      label: how do you use marka.md? (optional)
+      label: how do you use marknote? (optional)
       description: helps me prioritize. one sentence is enough.
       placeholder: "i use it to prep claude project context daily"

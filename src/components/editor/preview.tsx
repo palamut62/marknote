@@ -1,10 +1,26 @@
 import { useEffect, useRef, useState } from "react";
+import { Eye, EyeOff, Languages, Loader2, Undo2 } from "lucide-react";
+import { Icon } from "@/components/primitives";
 import { ensureMarkdownReady, renderMarkdown, useTheme } from "@/lib";
-import inspectUrl from "@/assets/mascot/inspect.png";
+import previewIconUrl from "@/assets/brand/marka-file-icon.png";
 import { renderMermaidBlocks } from "@/lib/mermaid";
+import { detectSecretsIn, hasSecrets, setSecretsHidden } from "@/lib/secret-mask";
 
 type PreviewProps = {
   source: string;
+  /** when set, an icon button appears at the top-right of the preview */
+  onTranslate?: () => void;
+  /** when set, clicking the icon reverts back to the original source */
+  onRevertTranslation?: () => void;
+  translating?: boolean;
+  /** true → preview is showing translated content; icon flips to revert */
+  translated?: boolean;
+  /** disabled state for the translate button (e.g. no api key / no model) */
+  translateDisabled?: boolean;
+  translateTooltip?: string;
+  /** when true, detected api keys/tokens render as dots */
+  secretsHidden?: boolean;
+  onToggleSecrets?: () => void;
 };
 
 // hand-written lucide copy + check icons so we don't drag in react-dom/server
@@ -62,7 +78,17 @@ function decorateCodeBlocks(root: HTMLElement): () => void {
   return () => cleanups.forEach((fn) => fn());
 }
 
-export function Preview({ source }: PreviewProps) {
+export function Preview({
+  source,
+  onTranslate,
+  onRevertTranslation,
+  translating = false,
+  translated = false,
+  translateDisabled = false,
+  translateTooltip,
+  secretsHidden = true,
+  onToggleSecrets,
+}: PreviewProps) {
   const theme = useTheme();
   const [ready, setReady] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
@@ -113,12 +139,57 @@ export function Preview({ source }: PreviewProps) {
     void renderMermaidBlocks(articleRef.current, mermaidTheme);
   }, [html, theme]);
 
+  // detect api keys/tokens after render, then apply current visibility
+  const [secretsPresent, setSecretsPresent] = useState(false);
+
+  useEffect(() => {
+    if (!articleRef.current) return;
+    detectSecretsIn(articleRef.current);
+    setSecretsHidden(articleRef.current, secretsHidden);
+    setSecretsPresent(hasSecrets(articleRef.current));
+  }, [html, secretsHidden]);
+
+  const secretsBtn = secretsPresent && onToggleSecrets ? (
+    <button
+      type="button"
+      className={`mdv-preview__secrets${secretsHidden ? "" : " is-revealed"}`}
+      data-tooltip={secretsHidden ? "show api keys / tokens" : "hide api keys / tokens"}
+      aria-label={secretsHidden ? "show secrets" : "hide secrets"}
+      aria-pressed={!secretsHidden}
+      onClick={onToggleSecrets}
+    >
+      <Icon icon={secretsHidden ? EyeOff : Eye} size={13} strokeWidth={1.6} />
+    </button>
+  ) : null;
+
+  const translateBtn = onTranslate ? (
+    <button
+      type="button"
+      className={`mdv-preview__translate${translated ? " is-translated" : ""}${translating ? " is-busy" : ""}`}
+      data-tooltip={
+        translateTooltip ??
+        (translated ? "show original" : translating ? "translating…" : "translate preview")
+      }
+      aria-label={translated ? "show original" : "translate preview"}
+      onClick={translated && onRevertTranslation ? onRevertTranslation : onTranslate}
+      disabled={translateDisabled || translating}
+    >
+      <Icon
+        icon={translating ? Loader2 : translated ? Undo2 : Languages}
+        size={13}
+        strokeWidth={1.6}
+      />
+    </button>
+  ) : null;
+
   if (source.trim().length === 0) {
     return (
       <div className="mdv-preview" data-theme={theme}>
+        {secretsBtn}
+        {translateBtn}
         <div className="mdv-preview__empty">
           <img
-            src={inspectUrl}
+            src={previewIconUrl}
             alt=""
             aria-hidden
             width={120}
@@ -135,6 +206,8 @@ export function Preview({ source }: PreviewProps) {
 
   return (
     <div className="mdv-preview" data-theme={theme}>
+      {secretsBtn}
+      {translateBtn}
       <article
         ref={articleRef}
         className="mdv-prose"

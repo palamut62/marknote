@@ -36,6 +36,12 @@
   top: 12vh;
 }
 
+.mdv-overlay--wide {
+  width: min(1040px, calc(100vw - 48px));
+  top: 8vh;
+  max-height: 84vh;
+}
+
 @keyframes mdv-overlay-fade {
   from { opacity: 0; }
   to { opacity: 1; }

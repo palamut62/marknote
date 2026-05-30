@@ -35,7 +35,7 @@ export function formatContextBundle(
   const parts = [
     "# context bundle",
     "",
-    "Files copied from marka.md for AI context.",
+    "Files copied from marknote for AI context.",
     "",
   ];
 

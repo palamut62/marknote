@@ -1,6 +1,9 @@
 .mdv-prose {
-  max-width: 720px;
-  margin: 0 auto;
+  /* fill the pane — the surrounding .mdv-preview already supplies 28px side
+     padding; capping at a small fixed width left big empty gutters in both
+     split-view and solo modes on wider windows. */
+  max-width: 100%;
+  margin: 0;
   font-family: var(--font-ui);
   font-size: 15px;
   line-height: 1.65;

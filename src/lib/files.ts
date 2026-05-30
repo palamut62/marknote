@@ -21,7 +21,7 @@ export async function pickMarkdownFile(): Promise<string | null> {
   const result = await open({
     multiple: false,
     title: "open markdown",
-    filters: [{ name: "markdown", extensions: ["md", "markdown", "mdx"] }],
+    filters: [{ name: "markdown / text", extensions: ["md", "markdown", "mdx", "txt"] }],
   });
   if (typeof result === "string") return result;
   return null;
@@ -32,12 +32,14 @@ export async function pickSaveMarkdown(defaultPath?: string): Promise<string | n
   const result = await save({
     title: "save markdown",
     defaultPath,
-    filters: [{ name: "markdown", extensions: ["md", "markdown", "mdx"] }],
+    filters: [{ name: "markdown / text", extensions: ["md", "markdown", "mdx", "txt"] }],
   });
   return result ?? null;
 }
 
-const MARKDOWN_EXT = /\.(md|markdown|mdx)$/i;
+// .txt is included so plain-text notes open and render as markdown (paragraphs,
+// lists, headings — anything markdown-it can detect — work the same way).
+const MARKDOWN_EXT = /\.(md|markdown|mdx|txt)$/i;
 
 export function isMarkdownPath(path: string): boolean {
   return MARKDOWN_EXT.test(path);
@@ -144,7 +146,7 @@ export type FileValidation =
 /** Quick guard before reading a file as markdown. Catches PDFs, images, oversized files. */
 export async function validateMarkdownFile(path: string): Promise<FileValidation> {
   if (!isMarkdownPath(path)) {
-    return { ok: false, reason: `${basename(path)} isn't a markdown file. marka.md handles .md / .markdown / .mdx` };
+    return { ok: false, reason: `${basename(path)} isn't a supported file. marknote handles .md / .markdown / .mdx / .txt` };
   }
   try {
     const info = await stat(path);
@@ -156,7 +158,7 @@ export async function validateMarkdownFile(path: string): Promise<FileValidation
     const slice = head.slice(0, 8);
     for (const sig of BINARY_SIGNATURES) {
       if (sig.bytes.every((b, i) => slice[i] === b)) {
-        return { ok: false, reason: `${basename(path)} looks like a ${sig.label}. marka.md only opens plain-text markdown.` };
+        return { ok: false, reason: `${basename(path)} looks like a ${sig.label}. marknote only opens plain-text markdown.` };
       }
     }
   } catch (err) {

@@ -1,13 +1,29 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
+/**
+ * Master kill-switch for the auto-updater.
+ *
+ * Set to `true` ONLY after you have:
+ *   1) configured your own endpoint(s) in src-tauri/tauri.conf.json (plugins.updater.endpoints)
+ *   2) generated a minisign keypair and pasted the public key into plugins.updater.pubkey
+ *   3) set plugins.updater.active = true in the same config
+ *   4) set bundle.createUpdaterArtifacts = true so `tauri build` produces signed update bundles
+ *
+ * While this is `false`, both `checkForUpdate` and `applyUpdate` short-circuit:
+ * no network requests, no errors, no toasts. Settings/About "check for updates"
+ * actions become no-ops that report "up to date".
+ */
+export const UPDATES_ENABLED = false;
+
 export type UpdateCheckResult =
   | { status: "available"; version: string; notes?: string; date?: string }
   | { status: "none" }
   | { status: "error"; message: string };
 
-/** Checks GitHub Releases via Tauri updater; idempotent. */
+/** Checks the configured endpoint via Tauri updater; idempotent. No-op when disabled. */
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
+  if (!UPDATES_ENABLED) return { status: "none" };
   try {
     const update = await check();
     if (!update) return { status: "none" };
@@ -29,10 +45,13 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   }
 }
 
-/** Throws on signature mismatch; relaunches on success. */
+/** Throws on signature mismatch; relaunches on success. No-op when disabled. */
 export async function applyUpdate(
   onProgress?: (downloaded: number, total: number) => void,
 ): Promise<void> {
+  if (!UPDATES_ENABLED) {
+    throw new Error("auto-update is disabled");
+  }
   const update: Update | null = await check();
   if (!update) {
     throw new Error("no update available");

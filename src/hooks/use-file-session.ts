@@ -15,6 +15,14 @@ import { useFileWatcher } from "./use-file-watcher";
 
 const SAVED_FLASH_MS = 1200;
 
+function normalizeForDirtyCheck(content: string): string {
+  return content.replace(/\r\n?/g, "\n");
+}
+
+function contentsMatch(a: string, b: string): boolean {
+  return normalizeForDirtyCheck(a) === normalizeForDirtyCheck(b);
+}
+
 export type LoadError = { message: string; path?: string };
 
 type UseFileSessionArgs = {
@@ -48,9 +56,24 @@ type UseFileSessionResult = {
   dirty: boolean;
 };
 
+// First-ever launch shows the demo. Once the user has dismissed the welcome
+// overlay or opened any file, an empty buffer is shown instead — the demo
+// shouldn't re-appear every cold start.
+function initialBuffer(): string {
+  try {
+    const welcomed = window.localStorage.getItem(STORAGE_KEYS.welcomed);
+    const lastFile = window.localStorage.getItem(STORAGE_KEYS.lastFile);
+    // welcomed flag set OR a previous file is on disk → don't seed the demo
+    if (welcomed === "true" || (lastFile && lastFile !== "null")) return "";
+  } catch {
+    /* localStorage unavailable → fall through to demo */
+  }
+  return DEMO_MARKDOWN;
+}
+
 export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFileSessionResult {
-  const [source, setSource] = useState<string>(DEMO_MARKDOWN);
-  const [savedContent, setSavedContent] = useState<string>(DEMO_MARKDOWN);
+  const [source, setSource] = useState<string>(initialBuffer);
+  const [savedContent, setSavedContent] = useState<string>(initialBuffer);
   const [activePath, setActivePath] = usePersistedState<string | null>(
     STORAGE_KEYS.lastFile,
     null,
@@ -80,7 +103,7 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
       const check = await validateMarkdownFile(path);
       if (!check.ok) {
         onLoadError?.({ message: check.reason, path });
-        console.warn("marka.md: refused to open", path, "·", check.reason);
+        console.warn("marknote: refused to open", path, "·", check.reason);
         return;
       }
       try {
@@ -91,7 +114,7 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
         setSaveStatus("idle");
         setRecentFiles((prev) => [path, ...prev.filter((p) => p !== path)].slice(0, 8));
       } catch (err) {
-        console.error("marka.md: readMarkdown failed", err);
+        console.error("marknote: readMarkdown failed", err);
         onLoadError?.({ message: String(err), path });
       }
     },
@@ -126,7 +149,7 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
         setSaveStatus((s) => (s === "saved" ? "idle" : s));
       }, SAVED_FLASH_MS);
     } catch (err) {
-      console.error("marka.md: writeMarkdown failed", err);
+      console.error("marknote: writeMarkdown failed", err);
       setSaveStatus("dirty");
     }
   }, []);
@@ -155,8 +178,8 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
     if (!activePath) return;
     try {
       const fresh = await readMarkdown(activePath);
-      if (fresh === sourceRef.current) return;
-      const isDirty = sourceRef.current !== savedRef.current;
+      if (contentsMatch(fresh, sourceRef.current)) return;
+      const isDirty = !contentsMatch(sourceRef.current, savedRef.current);
       if (!isDirty) {
         setSource(fresh);
         setSavedContent(fresh);
@@ -166,7 +189,7 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
         setExternalConflict(fresh);
       }
     } catch (err) {
-      console.error("marka.md: external change reload failed", err);
+      console.error("marknote: external change reload failed", err);
     }
   }, [activePath]);
   useFileWatcher(activePath, handleExternalChange);
@@ -185,7 +208,7 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
           setActivePath(null);
         }
       } catch (err) {
-        console.warn("marka.md: session restore failed", err);
+        console.warn("marknote: session restore failed", err);
         if (!cancelled) setActivePath(null);
       }
     })();
@@ -201,12 +224,14 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
       setSaveStatus("idle");
       return;
     }
-    if (source !== savedContent) {
+    if (!contentsMatch(source, savedContent)) {
       setSaveStatus((s) => (s === "saving" ? s : "dirty"));
+    } else {
+      setSaveStatus((s) => (s === "dirty" ? "idle" : s));
     }
   }, [source, savedContent, activePath]);
 
-  const dirty = activePath != null && source !== savedContent;
+  const dirty = activePath != null && !contentsMatch(source, savedContent);
 
   return {
     source,

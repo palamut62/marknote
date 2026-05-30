@@ -15,6 +15,7 @@
 @import "./styles/overlays/welcome.css";
 @import "./styles/overlays/drop.css";
 @import "./styles/overlays/about.css";
+@import "./styles/overlays/settings.css";
 
 /* shell layout */
 .mdv-app {
@@ -78,6 +79,56 @@
 @keyframes mdv-reading-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* edge-dock collapsed tab — covers the whole 24px window when docked */
+.mdv-app.is-docked {
+  grid-template-rows: 1fr;
+  overflow: hidden;
+}
+
+/* hide everything except the rail itself — overlays, toasts, tooltips,
+   mascots, titlebar, etc. all bleed into the 18×72 window otherwise */
+.mdv-app.is-docked > *:not(.mdv-dock-rail) {
+  display: none !important;
+}
+
+.mdv-dock-rail {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface, var(--bg));
+  color: var(--muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  z-index: 2147483647;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  transition: background var(--dur-fast) var(--easing), color var(--dur-fast) var(--easing);
+  -webkit-app-region: no-drag;
+}
+
+.mdv-dock-rail:hover { color: var(--accent); }
+.mdv-dock-rail:focus-visible { outline: none; color: var(--accent); }
+
+.mdv-dock-rail svg { display: block; }
+
+/* outer edge flush with the screen edge, inner edge curls outward */
+.mdv-app.is-docked-left .mdv-dock-rail {
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-left: none;
+}
+
+.mdv-app.is-docked-right .mdv-dock-rail {
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+  border-right: none;
 }
 
 /* theme transition smoothing — common surfaces fade between palettes */

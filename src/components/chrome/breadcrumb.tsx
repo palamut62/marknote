@@ -1,7 +1,7 @@
-import { Check, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Check, ChevronRight, Copy, Eye, EyeOff, FilePlus2, FileText, FolderOpen, Loader2, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Save, ScanText, Sparkles, WandSparkles } from "lucide-react";
 import { Button, Icon } from "@/components/primitives";
 import { shortcutLabel, startWindowDrag } from "@/lib";
-import exciteUrl from "@/assets/mascot/excite.png";
+import savedIconUrl from "@/assets/brand/marka-ai-icon.png";
 
 export type SaveStatus = "idle" | "dirty" | "saving" | "saved";
 
@@ -16,14 +16,60 @@ type BreadcrumbProps = {
   onOpenFolder?: () => void;
   onCopyMarkdown?: () => void;
   copyPulse?: boolean;
+  onCorrectMarkdown?: () => void;
+  correcting?: boolean;
+  correctDisabled?: boolean;
+  correctTooltip?: string;
+  onPromptifyMarkdown?: () => void;
+  promptifying?: boolean;
+  promptifyDisabled?: boolean;
+  promptifyTooltip?: string;
+  aiSelectionAvailable?: boolean;
+  aiSelectionActive?: boolean;
+  aiSelectionLabel?: string;
+  onToggleAiSelection?: () => void;
+  onSave?: () => void;
+  /** disable save button when there's nothing to write (clean buffer with a path) */
+  saveDisabled?: boolean;
+  /** click a folder segment in the path → switch sidebar root to that folder */
+  onNavigateToFolder?: (path: string) => void;
+  /** pane visibility — when both are true the splitter is shown */
+  editorVisible?: boolean;
+  previewVisible?: boolean;
+  onToggleEditor?: () => void;
+  onTogglePreview?: () => void;
+  /** global secret-mask toggle — visible when the document contains detectable api keys/tokens */
+  secretsPresent?: boolean;
+  secretsHidden?: boolean;
+  onToggleSecrets?: () => void;
 };
 
 const MAX_SEGMENTS = 4;
 
-function pathSegments(path: string): string[] {
+type Segment = {
+  label: string;
+  /** full filesystem path up to and including this segment; null for the "…" truncation marker */
+  fullPath: string | null;
+  /** false when this is the leaf file (last seg of an activePath) — not navigable as a folder */
+  isDir: boolean;
+};
+
+function pathSegments(path: string, hasLeafFile: boolean): Segment[] {
+  const sep = path.includes("\\") ? "\\" : "/";
   const parts = path.split(/[\\/]/).filter(Boolean);
-  if (parts.length <= MAX_SEGMENTS) return parts;
-  return ["…", ...parts.slice(-MAX_SEGMENTS)];
+  // windows drive root ("C:") needs the separator restored when rejoining
+  const prefix = /^[a-zA-Z]:$/.test(parts[0] ?? "") ? "" : sep;
+
+  const fullFor = (i: number) => prefix + parts.slice(0, i + 1).join(sep);
+
+  const segs: Segment[] = parts.map((label, i) => ({
+    label,
+    fullPath: fullFor(i),
+    isDir: !(hasLeafFile && i === parts.length - 1),
+  }));
+
+  if (segs.length <= MAX_SEGMENTS) return segs;
+  return [{ label: "…", fullPath: null, isDir: false }, ...segs.slice(-MAX_SEGMENTS)];
 }
 
 function statusLabel(status: SaveStatus): string {
@@ -50,9 +96,31 @@ export function Breadcrumb({
   onOpenFolder,
   onCopyMarkdown,
   copyPulse = false,
+  onCorrectMarkdown,
+  correcting = false,
+  correctDisabled = false,
+  correctTooltip,
+  onPromptifyMarkdown,
+  promptifying = false,
+  promptifyDisabled = false,
+  promptifyTooltip,
+  aiSelectionAvailable = false,
+  aiSelectionActive = false,
+  aiSelectionLabel,
+  onToggleAiSelection,
+  onSave,
+  saveDisabled = false,
+  onNavigateToFolder,
+  editorVisible = true,
+  previewVisible = true,
+  onToggleEditor,
+  onTogglePreview,
+  secretsPresent = false,
+  secretsHidden = true,
+  onToggleSecrets,
 }: BreadcrumbProps) {
   const path = activePath ?? rootPath;
-  const segments = path ? pathSegments(path) : [];
+  const segments = path ? pathSegments(path, activePath != null) : [];
   const label = statusLabel(saveStatus);
 
   return (
@@ -74,23 +142,36 @@ export function Breadcrumb({
         {segments.length === 0 ? (
           <span className="mdv-breadcrumb__placeholder">no file open</span>
         ) : (
-          segments.map((seg, i) => (
-            <span key={`${seg}-${i}`} className="mdv-breadcrumb__seg-row">
-              {i > 0 ? (
-                <Icon
-                  icon={ChevronRight}
-                  size={11}
-                  strokeWidth={1.5}
-                  title="separator"
-                />
-              ) : null}
-              <span
-                className={`mdv-breadcrumb__seg${i === segments.length - 1 ? " is-leaf" : ""}`}
-              >
-                {seg}
+          segments.map((seg, i) => {
+            const isLeaf = i === segments.length - 1;
+            const canNav = seg.isDir && seg.fullPath != null && !!onNavigateToFolder && !isLeaf;
+            return (
+              <span key={`${seg.label}-${i}`} className="mdv-breadcrumb__seg-row">
+                {i > 0 ? (
+                  <Icon
+                    icon={ChevronRight}
+                    size={11}
+                    strokeWidth={1.5}
+                    title="separator"
+                  />
+                ) : null}
+                {canNav ? (
+                  <button
+                    type="button"
+                    className="mdv-breadcrumb__seg mdv-breadcrumb__seg--nav"
+                    onClick={() => onNavigateToFolder!(seg.fullPath!)}
+                    data-tooltip={`open ${seg.label}`}
+                  >
+                    {seg.label}
+                  </button>
+                ) : (
+                  <span className={`mdv-breadcrumb__seg${isLeaf ? " is-leaf" : ""}`}>
+                    {seg.label}
+                  </span>
+                )}
               </span>
-            </span>
-          ))
+            );
+          })
         )}
       </nav>
 
@@ -99,7 +180,7 @@ export function Breadcrumb({
           <>
             {saveStatus === "saved" ? (
               <img
-                src={exciteUrl}
+                src={savedIconUrl}
                 alt=""
                 aria-hidden
                 width={16}
@@ -131,6 +212,104 @@ export function Breadcrumb({
               <Icon icon={Check} size={13} strokeWidth={2} />
             </span>
           </button>
+        ) : null}
+        {aiSelectionAvailable && onToggleAiSelection ? (
+          <button
+            type="button"
+            className={`mdv-ai-scope${aiSelectionActive ? " is-active" : ""}`}
+            data-tooltip={
+              aiSelectionActive
+                ? `ai applies to selected text${aiSelectionLabel ? ` · ${aiSelectionLabel}` : ""}`
+                : "ai applies to the whole file"
+            }
+            aria-label={aiSelectionActive ? "ai scope selected text" : "ai scope whole file"}
+            aria-pressed={aiSelectionActive}
+            onClick={onToggleAiSelection}
+          >
+            <Icon icon={ScanText} size={12} strokeWidth={1.5} />
+            <span className="mdv-ai-scope__label">selection</span>
+          </button>
+        ) : null}
+        {onCorrectMarkdown ? (
+          <Button
+            data-tooltip={correctTooltip ?? (correcting ? "correcting..." : "correct spelling and grammar with ai")}
+            aria-label="correct spelling and grammar"
+            onClick={onCorrectMarkdown}
+            disabled={correctDisabled || correcting}
+            icon={
+              <Icon
+                icon={correcting ? Loader2 : Sparkles}
+                size={13}
+                strokeWidth={1.5}
+              />
+            }
+          />
+        ) : null}
+        {onPromptifyMarkdown ? (
+          <Button
+            data-tooltip={promptifyTooltip ?? (promptifying ? "turning into prompt..." : "turn markdown into an ai prompt")}
+            aria-label="turn markdown into prompt"
+            onClick={onPromptifyMarkdown}
+            disabled={promptifyDisabled || promptifying}
+            icon={
+              <Icon
+                icon={promptifying ? Loader2 : WandSparkles}
+                size={13}
+                strokeWidth={1.5}
+              />
+            }
+          />
+        ) : null}
+        {onToggleEditor ? (
+          <Button
+            data-tooltip={editorVisible ? "hide editor pane" : "show editor pane"}
+            aria-label={editorVisible ? "hide editor" : "show editor"}
+            aria-pressed={!editorVisible}
+            onClick={onToggleEditor}
+            // can't hide both panes — disable when this is the only one visible
+            disabled={editorVisible && !previewVisible}
+            icon={
+              <Icon
+                icon={editorVisible ? PanelLeftClose : PanelLeftOpen}
+                size={13}
+                strokeWidth={1.5}
+              />
+            }
+          />
+        ) : null}
+        {onTogglePreview ? (
+          <Button
+            data-tooltip={previewVisible ? "hide preview pane" : "show preview pane"}
+            aria-label={previewVisible ? "hide preview" : "show preview"}
+            aria-pressed={!previewVisible}
+            onClick={onTogglePreview}
+            disabled={previewVisible && !editorVisible}
+            icon={
+              <Icon
+                icon={previewVisible ? PanelRightClose : PanelRightOpen}
+                size={13}
+                strokeWidth={1.5}
+              />
+            }
+          />
+        ) : null}
+        {secretsPresent && onToggleSecrets ? (
+          <Button
+            data-tooltip={secretsHidden ? "show api keys / tokens" : "hide api keys / tokens"}
+            aria-label={secretsHidden ? "show secrets" : "hide secrets"}
+            aria-pressed={!secretsHidden}
+            onClick={onToggleSecrets}
+            icon={<Icon icon={secretsHidden ? EyeOff : Eye} size={13} strokeWidth={1.5} />}
+          />
+        ) : null}
+        {onSave ? (
+          <Button
+            data-tooltip={shortcutLabel("save (⌘S)")}
+            aria-label="save"
+            onClick={onSave}
+            disabled={saveDisabled}
+            icon={<Icon icon={Save} size={13} strokeWidth={1.5} />}
+          />
         ) : null}
         <Button
           data-tooltip={shortcutLabel("new file (⌘N)")}

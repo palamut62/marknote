@@ -80,7 +80,7 @@ export function useFileOps({
             path: target,
           });
         } else {
-          console.error("marka.md: move failed", err);
+          console.error("marknote: move failed", err);
           onError({ message: `could not move ${basename(src)} — ${msg}` });
         }
       }
@@ -101,7 +101,7 @@ export function useFileOps({
         if (msg.includes(FS_CONFLICT)) {
           onError({ message: `${newName} already exists in this folder` });
         } else {
-          console.error("marka.md: rename failed", err);
+          console.error("marknote: rename failed", err);
           onError({ message: `could not rename — ${msg}` });
         }
       }
@@ -127,7 +127,7 @@ export function useFileOps({
         if (msg.includes(FS_CONFLICT)) {
           onError({ message: `${name} already exists in this folder` });
         } else {
-          console.error("marka.md: create failed", err);
+          console.error("marknote: create failed", err);
           onError({ message: `could not create — ${msg}` });
         }
       }
@@ -175,7 +175,7 @@ export function useFileOps({
         return;
       }
     } catch (err) {
-      console.error("marka.md: undo failed", err);
+      console.error("marknote: undo failed", err);
       onError({ message: `could not undo — ${err instanceof Error ? err.message : err}` });
     }
   }, [activePath, bumpTree, setActivePath, startNewBuffer, onError]);

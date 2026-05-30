@@ -1,8 +1,8 @@
 #!/bin/sh
-# marka — terminal wrapper to open files / folders in marka.md
+# marka — terminal wrapper to open files / folders in marknote
 # usage:
 #   marka                   # launch the app
-#   marka file.md           # open file.md in marka.md
+#   marka file.md           # open file.md in marknote
 #   marka path/to/notes/    # open folder (uses sidebar)
 
-exec open -a "marka.md" "$@"
+exec open -a "marknote" "$@"

@@ -1,16 +1,17 @@
 <p align="center">
-  <img src="./assets/readme-icon.png" width="180" alt="marka.md app icon" />
+  <img src="./assets/readme-icon.png" width="180" alt="marknote app icon" />
 </p>
 
-<h1 align="center">marka.md</h1>
+<h1 align="center">marknote</h1>
 
 <p align="center"><em>a local markdown editor for the notes you share with ai.</em></p>
 
+<p align="center"><sub>marknote is a fork of <a href="https://github.com/mattenarle10/markamd">marka.md</a> by Matt Enarle, used under the MIT License.</sub></p>
+
 <p align="center">
-  <a href="https://markamd.vercel.app"><img src="https://img.shields.io/badge/site-markamd.vercel.app-orange?style=flat-square" alt="site" /></a>
-  <a href="https://github.com/mattenarle10/markamd/releases/latest"><img src="https://img.shields.io/github/v/release/mattenarle10/markamd?style=flat-square&color=orange&label=release" alt="release" /></a>
-  <a href="https://github.com/mattenarle10/markamd/releases"><img src="https://img.shields.io/github/downloads/mattenarle10/markamd/total?style=flat-square&color=black&label=downloads" alt="downloads" /></a>
-  <a href="https://github.com/mattenarle10/markamd/stargazers"><img src="https://img.shields.io/github/stars/mattenarle10/markamd?style=flat-square&color=black&label=stars" alt="stars" /></a>
+  <a href="https://github.com/palamut62/marknote/releases/latest"><img src="https://img.shields.io/github/v/release/palamut62/marknote?style=flat-square&color=orange&label=release" alt="release" /></a>
+  <a href="https://github.com/palamut62/marknote/releases"><img src="https://img.shields.io/github/downloads/palamut62/marknote/total?style=flat-square&color=black&label=downloads" alt="downloads" /></a>
+  <a href="https://github.com/palamut62/marknote/stargazers"><img src="https://img.shields.io/github/stars/palamut62/marknote?style=flat-square&color=black&label=stars" alt="stars" /></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black?style=flat-square" alt="macos" />
   <img src="https://img.shields.io/badge/Windows-10%2B-black?style=flat-square" alt="windows" />
   <img src="https://img.shields.io/badge/Linux-x86__64-black?style=flat-square" alt="linux" />
@@ -48,26 +49,26 @@ works with claude, chatgpt, gemini, your local agent — anywhere that reads pla
 
 ## install
 
-[download the latest release →](https://github.com/mattenarle10/markamd/releases/latest)
+[download the latest release →](https://github.com/palamut62/marknote/releases/latest)
 
 ### macOS (notarized + auto-updating, universal arch coverage)
 
-- **apple silicon** (M1/M2/M3/M4): grab `marka.md.dmg` → drag **marka.md.app** into `/Applications` → open.
-- **intel mac**: grab `marka.md_intel.dmg` → same install steps.
+- **apple silicon** (M1/M2/M3/M4): grab `marknote.dmg` → drag **marknote.app** into `/Applications` → open.
+- **intel mac**: grab `marknote_intel.dmg` → same install steps.
 
 ### Windows (10+, x64)
 
-grab `marka.md_*-setup.exe` → run.
+grab `marknote_*-setup.exe` → run.
 
-Windows SmartScreen may show "Windows protected your PC". Click **More info** → **Run anyway**. marka.md is free + MIT — we don't sign Windows builds (paid certs aren't worth it for a free OSS project). Full source is right here if you'd rather build it yourself.
+Windows SmartScreen may show "Windows protected your PC". Click **More info** → **Run anyway**. marknote is free + MIT — we don't sign Windows builds (paid certs aren't worth it for a free OSS project). Full source is right here if you'd rather build it yourself.
 
 ### Linux (x86_64)
 
 three flavors, pick what fits your distro:
 
-- **AppImage** (works anywhere): `chmod +x marka.md_*.AppImage` → run. self-contained, no install step needed.
-- **.deb** (Debian / Ubuntu / Mint / Pop!_OS): `sudo dpkg -i marka.md_*_amd64.deb`
-- **.rpm** (Fedora / RHEL / Rocky / openSUSE): `sudo dnf install marka.md-*.x86_64.rpm`
+- **AppImage** (works anywhere): `chmod +x marknote_*.AppImage` → run. self-contained, no install step needed.
+- **.deb** (Debian / Ubuntu / Mint / Pop!_OS): `sudo dpkg -i marknote_*_amd64.deb`
+- **.rpm** (Fedora / RHEL / Rocky / openSUSE): `sudo dnf install marknote-*.x86_64.rpm`
 
 no signing required on Linux — it's the freedom platform 🐧
 
@@ -143,7 +144,7 @@ every folder exports its public api via `index.ts`. path alias `@/*` resolves to
 
 ## roadmap
 
-per-release detail lives on the [changelog](https://markamd.vercel.app/changelog) (auto-fresh from GitHub releases). high-level:
+per-release detail lives on the [GitHub releases](https://github.com/palamut62/marknote/releases). high-level:
 
 **v1.5**:
 - **context tray** — multi-file bundling, ⌘-click to stage, token estimates, copy as one prompt blob
@@ -160,28 +161,27 @@ contributions welcome — see [feedback](#feedback) below to suggest priorities.
 
 local-first. nothing ever leaves your machine. no telemetry, no analytics, no accounts, no cloud sync. your `.md` files stay on disk. clipboard transfers happen only when you press ⌘⇧C — and then they're yours, going wherever you paste them.
 
-see [the full privacy notice](https://markamd.vercel.app/privacy) for the website analytics caveat (vercel speed insights, cookieless).
-
 ## feedback
 
 ideas, bugs, or just want to say hi?
 
-- **structured form (GitHub)** — [feedback](https://github.com/mattenarle10/markamd/issues/new?template=feedback.yml) · [bug report](https://github.com/mattenarle10/markamd/issues/new?template=bug-report.yml)
-- **prefer email?** → [enarlem10@gmail.com](mailto:enarlem10@gmail.com?subject=marka.md%20feedback)
-- **landing page hub** → [markamd.vercel.app/feedback](https://markamd.vercel.app/feedback)
+- **structured form (GitHub)** — [feedback](https://github.com/palamut62/marknote/issues/new?template=feedback.yml) · [bug report](https://github.com/palamut62/marknote/issues/new?template=bug-report.yml)
+- **prefer email?** → [umutins62@hotmail.com](mailto:umutins62@hotmail.com?subject=marknote%20feedback)
 - **security issues** → [SECURITY.md](./SECURITY.md)
 
 i read everything. PRs welcome.
 
 ## support
 
-marka.md is free + MIT, and intends to stay that way. if it saves you time wrangling AI context:
+marknote is free + MIT, and intends to stay that way. if it saves you time wrangling AI context:
 
-- ⭐ [star the repo](https://github.com/mattenarle10/markamd) — biggest single signal
+- ⭐ [star the repo](https://github.com/palamut62/marknote) — biggest single signal
 - 🗣️ tell another dev / share it
 
 both appreciated, neither required. 🐙
 
 ## license
 
-mit · matt enarle ([@mattenarle10](https://github.com/mattenarle10))
+mit · umut çelik ([@palamut62](https://github.com/palamut62))
+
+forked from [marka.md](https://github.com/mattenarle10/markamd) by matt enarle ([@mattenarle10](https://github.com/mattenarle10)) · original copyright retained in [LICENSE](./LICENSE)

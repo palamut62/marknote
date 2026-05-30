@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { listFolder, type FileEntry } from "@/lib";
-import sadUrl from "@/assets/mascot/sad.png";
+import errorIconUrl from "@/assets/brand/marka-app-icon.png";
 import { EditableRow } from "./editable-row";
 import { FileNode, FolderNode } from "./folder-node";
 
@@ -12,6 +12,8 @@ type FileTreeProps = {
   onSelect: (path: string) => void;
   onMove?: (src: string, dstParent: string) => void;
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
+  onRequestRename?: (path: string) => void;
+  onNavigate?: (path: string) => void;
   stagedPaths?: readonly string[];
   onToggleStage?: (path: string) => void;
   editingPath?: string | null;
@@ -30,6 +32,8 @@ export function FileTree({
   onSelect,
   onMove,
   onContextMenu,
+  onRequestRename,
+  onNavigate,
   stagedPaths = [],
   onToggleStage,
   editingPath,
@@ -53,7 +57,7 @@ export function FileTree({
       })
       .catch((e) => {
         if (!cancelled) {
-          console.error("marka.md: listFolder failed", e);
+          console.error("marknote: listFolder failed", e);
           setError(String(e));
         }
       });
@@ -65,7 +69,7 @@ export function FileTree({
   if (error) {
     return (
       <div className="mdv-tree__error">
-        <img src={sadUrl} alt="" aria-hidden width={56} height={56} className="mdv-tree__error-art" />
+        <img src={errorIconUrl} alt="" aria-hidden width={56} height={56} className="mdv-tree__error-art" />
         <span>cannot read folder</span>
       </div>
     );
@@ -113,6 +117,8 @@ export function FileTree({
               onSelect={onSelect}
               onMove={onMove}
               onContextMenu={onContextMenu}
+              onRequestRename={onRequestRename}
+              onNavigate={onNavigate}
               stagedPaths={stagedPaths}
               onToggleStage={onToggleStage}
               editingPath={editingPath}
@@ -133,6 +139,7 @@ export function FileTree({
             active={activePath === entry.path}
             onSelect={onSelect}
             onContextMenu={onContextMenu}
+            onRequestRename={onRequestRename}
             staged={stagedPaths.includes(entry.path)}
             onToggleStage={onToggleStage}
             depth={depth}

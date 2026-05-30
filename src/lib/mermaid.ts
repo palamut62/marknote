@@ -42,7 +42,7 @@ export async function renderMermaidBlocks(root: ParentNode, theme: "default" | "
       pre.innerHTML = svg;
       pre.classList.add("is-rendered");
     } catch (err) {
-      console.error("marka.md: mermaid render failed", err);
+      console.error("marknote: mermaid render failed", err);
       pre.replaceChildren();
       const codeEl = document.createElement("code");
       codeEl.className = "mdv-mermaid__error";

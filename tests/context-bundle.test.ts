@@ -13,7 +13,7 @@ test("formats staged files as one prompt bundle with relative paths", () => {
   expect(bundle).toBe([
     "# context bundle",
     "",
-    "Files copied from marka.md for AI context.",
+    "Files copied from marknote for AI context.",
     "",
     "<!-- file: brief.md -->",
     "",

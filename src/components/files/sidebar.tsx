@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Copy, FolderOpen, Search, Trash2, X } from "lucide-react";
+import { Copy, FilePlus, FolderOpen, FolderPlus, Search, Trash2, X } from "lucide-react";
 import { Button, Icon } from "@/components/primitives";
 import { basename, shortcutLabel, startWindowDrag, type FileEntry } from "@/lib";
-import emptyTowerUrl from "@/assets/mascot/empty-m.png";
+import emptyMarkUrl from "@/assets/brand/marka-app-icon.png";
 import { FileTree, type NewEntry } from "./file-tree";
 import { SearchResults } from "./sidebar-search";
 
@@ -13,9 +13,13 @@ type SidebarProps = {
   width: number;
   onWidthChange: (next: number) => void;
   onOpenFolder: () => void;
+  onNewFileAtRoot?: () => void;
+  onNewFolderAtRoot?: () => void;
   onSelectFile: (path: string) => void;
   onMove?: (src: string, dstParent: string) => void;
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
+  onRequestRename?: (path: string) => void;
+  onNavigateToFolder?: (path: string) => void;
   stagedPaths?: readonly string[];
   stagedTokenLabel?: string;
   onToggleStage?: (path: string) => void;
@@ -40,9 +44,13 @@ export function Sidebar({
   width,
   onWidthChange,
   onOpenFolder,
+  onNewFileAtRoot,
+  onNewFolderAtRoot,
   onSelectFile,
   onMove,
   onContextMenu,
+  onRequestRename,
+  onNavigateToFolder,
   stagedPaths = [],
   stagedTokenLabel = "0",
   onToggleStage,
@@ -145,6 +153,22 @@ export function Sidebar({
             {rootPath ? basename(rootPath) : "no folder"}
           </span>
           <div className="mdv-sidebar__header-actions">
+            {rootPath && onNewFileAtRoot ? (
+              <Button
+                data-tooltip="new file"
+                aria-label="new file in folder"
+                onClick={onNewFileAtRoot}
+                icon={<Icon icon={FilePlus} size={13} strokeWidth={1.5} />}
+              />
+            ) : null}
+            {rootPath && onNewFolderAtRoot ? (
+              <Button
+                data-tooltip="new folder"
+                aria-label="new folder in folder"
+                onClick={onNewFolderAtRoot}
+                icon={<Icon icon={FolderPlus} size={13} strokeWidth={1.5} />}
+              />
+            ) : null}
             {rootPath ? (
               <Button
                 data-tooltip={searchOpen ? "close search (esc)" : "search folder"}
@@ -203,7 +227,7 @@ export function Sidebar({
               if (rootDrop) setRootDrop(false);
               return;
             }
-            if (!e.dataTransfer.types.includes("application/x-marka-path")) return;
+            if (!e.dataTransfer.types.includes("application/x-marknote-path")) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
             if (!rootDrop) setRootDrop(true);
@@ -217,7 +241,7 @@ export function Sidebar({
             // let folder rows handle their own drops
             const target = e.target as HTMLElement;
             if (target.closest(".mdv-tree__row--folder")) return;
-            const src = e.dataTransfer.getData("application/x-marka-path");
+            const src = e.dataTransfer.getData("application/x-marknote-path");
             if (!src) return;
             e.preventDefault();
             setRootDrop(false);
@@ -244,6 +268,8 @@ export function Sidebar({
                 onSelect={onSelectFile}
                 onMove={onMove}
                 onContextMenu={onContextMenu}
+                onRequestRename={onRequestRename}
+                onNavigate={onNavigateToFolder}
                 stagedPaths={stagedPaths}
                 onToggleStage={onToggleStage}
                 editingPath={editingPath}
@@ -258,7 +284,7 @@ export function Sidebar({
           ) : (
             <button type="button" className="mdv-sidebar__empty" onClick={onOpenFolder}>
               <img
-                src={emptyTowerUrl}
+                src={emptyMarkUrl}
                 alt=""
                 aria-hidden
                 width={72}

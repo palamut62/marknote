@@ -1,6 +1,6 @@
 # auto-update setup
 
-how marka.md will deliver auto-updates to shipped users. plan first — wire it up just before tagging v1.0 (so signed builds get an updater channel from day one).
+how marknote will deliver auto-updates to shipped users. plan first — wire it up just before tagging v1.0 (so signed builds get an updater channel from day one).
 
 ## how it works (one paragraph)
 
@@ -28,7 +28,7 @@ the command will ask for a password — pick something strong, save it next to t
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/mattenarle10/markamd/releases/latest/download/latest.json"
+        "https://github.com/palamut62/marknote/releases/latest/download/latest.json"
       ],
       "dialog": false,
       "pubkey": "PASTE_CONTENT_OF_~/.tauri/marka.key.pub_HERE"
@@ -79,7 +79,7 @@ env:
 ```
 
 with these set, tauri-action emits **two extra artifacts** per release:
-- `marka.md.app.tar.gz` — the signed bundle the updater downloads
+- `marknote.app.tar.gz` — the signed bundle the updater downloads
 - `latest.json` — the manifest the updater reads
 
 both are attached automatically to the github release.
@@ -100,7 +100,7 @@ export async function checkForUpdate(onAvailable: (v: string) => void) {
       onAvailable(update.version);
     }
   } catch (err) {
-    console.warn("marka.md: update check failed", err);
+    console.warn("marknote: update check failed", err);
   }
 }
 
@@ -138,7 +138,7 @@ shipping the updater before notarization works mechanically but breaks the magic
 ## risks / gotchas
 
 - **private key loss** = permanent inability to push updates to existing installs. they'd need to re-download manually.
-- **endpoint downtime** — github releases is the SPOF here. acceptable for a free indie app. if downtime becomes a real problem, host `latest.json` on the landing site (`markamd.vercel.app/latest.json`) and have a small script publish to it after each release.
+- **endpoint downtime** — github releases is the SPOF here. acceptable for a free indie app. if downtime becomes a real problem, host `latest.json` on the landing site (`github.com/palamut62/marknote/latest.json`) and have a small script publish to it after each release.
 - **rollbacks** — there's no "revert" mechanism. if a release ships a bad bug, the fix is to publish a higher version with the fix. never delete a release that users may already have updated to (it breaks delta resolution).
 - **manifest schema** — tauri 2 changed the format. don't paste tauri 1 examples into the endpoint config.
 

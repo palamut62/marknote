@@ -1,8 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { Breadcrumb, StatusBar, TitleBar, type VimMode } from "@/components/chrome";
-import { Editor, Preview, ReadingFind, Splitter } from "@/components/editor";
+import {
+  Editor,
+  MarkdownInspector,
+  MarkdownToolbar,
+  Preview,
+  ReadingFind,
+  Splitter,
+  type EditorHandle,
+} from "@/components/editor";
 import { ContextMenu, Sidebar, type ContextMenuItem } from "@/components/files";
-import { AboutOverlay, CommandPalette, DropOverlay, HelpOverlay, Toast, WelcomeOverlay } from "@/components/overlays";
+import {
+  AboutOverlay,
+  AiReviewOverlay,
+  CommandPalette,
+  DropOverlay,
+  HelpOverlay,
+  SettingsOverlay,
+  SnapshotsOverlay,
+  Toast,
+  WelcomeOverlay,
+} from "@/components/overlays";
 import { TooltipRoot } from "@/components/primitives";
 import {
   useContextMenu,
@@ -37,7 +56,28 @@ import {
   readContextFiles,
   removeEntry,
   STORAGE_KEYS,
+  DEFAULT_PROOFREAD_PROMPT,
+  DEFAULT_PROMPTIFY_PROMPT,
+  DEFAULT_TRANSLATE_PROMPT,
+  applyMarkdownAction,
+  createSnapshot,
+  deleteSnapshot,
+  extractHeadings,
+  insertTemplate,
+  listSnapshots,
+  lintMarkdown,
+  proofreadMarkdown,
+  promptifyMarkdown,
+  type MarkdownAction,
+  type Snapshot,
+  type TextRange,
 } from "@/lib";
+import { UPDATES_ENABLED } from "@/lib/updater";
+import { translateMarkdown, LANGUAGES } from "@/lib";
+import { applyDockMode, collapseDock, expandDock, type DockMode } from "@/lib/dock";
+import { sourceHasSecrets } from "@/lib/secret-mask";
+import { CheckCheck, ChevronLeft, ChevronRight, Clipboard, Copy, Languages, MousePointer2, Scissors, TextCursorInput, WandSparkles } from "lucide-react";
+import { Icon } from "@/components/primitives";
 import "./app.css";
 
 export function App() {
@@ -57,7 +97,6 @@ export function App() {
   const {
     source,
     setSource,
-    savedContent,
     activePath,
     setActivePath,
     rootPath,
@@ -131,7 +170,126 @@ export function App() {
 
   const [vimOn, setVimOn] = usePersistedState<boolean>(STORAGE_KEYS.vimMode, false);
   const [vimMode, setVimMode] = useState<VimMode | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [openrouterKey, setOpenrouterKey] = usePersistedState<string>(
+    STORAGE_KEYS.openrouterKey,
+    "",
+  );
+  const [openrouterModel, setOpenrouterModel] = usePersistedState<string>(
+    STORAGE_KEYS.openrouterModel,
+    "",
+  );
+  const [translateTargetLang, setTranslateTargetLang] = usePersistedState<string>(
+    STORAGE_KEYS.translateTargetLang,
+    LANGUAGES[0]?.code ?? "en",
+  );
+  const [proofreadPrompt, setProofreadPrompt] = usePersistedState<string>(
+    STORAGE_KEYS.proofreadPrompt,
+    DEFAULT_PROOFREAD_PROMPT,
+  );
+  const [promptifyPrompt, setPromptifyPrompt] = usePersistedState<string>(
+    STORAGE_KEYS.promptifyPrompt,
+    DEFAULT_PROMPTIFY_PROMPT,
+  );
+  const [translatePrompt, setTranslatePrompt] = usePersistedState<string>(
+    STORAGE_KEYS.translatePrompt,
+    DEFAULT_TRANSLATE_PROMPT,
+  );
+  const [translatedSource, setTranslatedSource] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
+  const [promptifying, setPromptifying] = useState(false);
+  const editorRef = useRef<EditorHandle | null>(null);
+  const [selectionRange, setSelectionRange] = useState<TextRange>({ from: 0, to: 0 });
+  const [aiSelectionScope, setAiSelectionScope] = useState(false);
+  const [editorContextMenu, setEditorContextMenu] = useState<{
+    x: number;
+    y: number;
+    range: TextRange;
+    hasSelection: boolean;
+  } | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [snapshotsOpen, setSnapshotsOpen] = useState(false);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>(() => listSnapshots());
+  const [aiReview, setAiReview] = useState<{
+    title: string;
+    original: string;
+    next: string;
+    range: TextRange;
+  } | null>(null);
+  const [secretsHidden, setSecretsHidden] = usePersistedState<boolean>(
+    STORAGE_KEYS.secretsHidden,
+    true,
+  );
+  const [editorTextColor, setEditorTextColor] = usePersistedState<string>(
+    STORAGE_KEYS.editorTextColor,
+    "#2563eb",
+  );
+  const [editorHighlightColor, setEditorHighlightColor] = usePersistedState<string>(
+    STORAGE_KEYS.editorHighlightColor,
+    "#fde047",
+  );
+  const [secretHiddenColor, setSecretHiddenColor] = usePersistedState<string>(
+    STORAGE_KEYS.secretHiddenColor,
+    "#7c3aed",
+  );
+  const [secretHiddenBg, setSecretHiddenBg] = usePersistedState<string>(
+    STORAGE_KEYS.secretHiddenBg,
+    "#ede9fe",
+  );
+  const [secretRevealedColor, setSecretRevealedColor] = usePersistedState<string>(
+    STORAGE_KEYS.secretRevealedColor,
+    "#b91c1c",
+  );
+  const [secretRevealedBg, setSecretRevealedBg] = usePersistedState<string>(
+    STORAGE_KEYS.secretRevealedBg,
+    "#fee2e2",
+  );
+  const toggleSecrets = useCallback(() => setSecretsHidden((v: boolean) => !v), [setSecretsHidden]);
+  const [dockMode, setDockMode] = usePersistedState<DockMode>(STORAGE_KEYS.dockMode, "off");
+  const [dockOpen, setDockOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+
+  // apply dock mode on mount + whenever the setting changes
+  useEffect(() => {
+    void applyDockMode(dockMode, { open: dockOpen && dockMode !== "off" });
+    if (dockMode === "off") setDockOpen(false);
+  }, [dockMode]);
+
+  // intercept window close → when docked, collapse to the dock tab instead of quitting
+  useEffect(() => {
+    if (dockMode === "off") return;
+    const win = getCurrentWindow();
+    let unlisten: (() => void) | undefined;
+    void win.onCloseRequested((event) => {
+      event.preventDefault();
+      void collapseDock(dockMode as Exclude<DockMode, "off">).then(() => setDockOpen(false));
+    }).then((un) => {
+      unlisten = un;
+    });
+    return () => { unlisten?.(); };
+  }, [dockMode]);
+
+  // auto-collapse on focus loss
+  useEffect(() => {
+    if (dockMode === "off") return;
+    const win = getCurrentWindow();
+    let unlisten: (() => void) | undefined;
+    void win.onFocusChanged(({ payload: focused }) => {
+      if (!focused && dockOpen) {
+        void collapseDock(dockMode as Exclude<DockMode, "off">).then(() => setDockOpen(false));
+      }
+    }).then((un) => {
+      unlisten = un;
+    });
+    return () => { unlisten?.(); };
+  }, [dockMode, dockOpen]);
+
+  const handleDockTabClick = useCallback(() => {
+    if (dockMode === "off") return;
+    void expandDock(dockMode as Exclude<DockMode, "off">).then(() => setDockOpen(true));
+  }, [dockMode]);
+
   const [stagedPaths, setStagedPaths] = useState<string[]>([]);
   const [stagedTokenLabel, setStagedTokenLabel] = useState("0");
   const [whatsNewVersion, setWhatsNewVersion] = useState<string | null>(null);
@@ -147,7 +305,7 @@ export function App() {
       const message = err instanceof PdfExportError
         ? err.message
         : "couldn't export to pdf";
-      console.error("marka.md: pdf export failed", err);
+      console.error("marknote: pdf export failed", err);
       setLoadError({ message });
     }
   }, [source, activePath]);
@@ -159,17 +317,21 @@ export function App() {
       const isFs = await win.isFullscreen();
       await win.setFullscreen(!isFs);
     } catch (err) {
-      console.error("marka.md: fullscreen toggle failed", err);
+      console.error("marknote: fullscreen toggle failed", err);
     }
   }, []);
 
   const [readingMode, setReadingMode] = useState(false);
-  const [editorOnly, setEditorOnly] = useState(false);
-  // reading + editor-only are mutually exclusive view modes
+  const [editorOnly, setEditorOnly] = useState(true);
+  const [previewOnly, setPreviewOnly] = useState(false);
+  // reading + editor-only + preview-only are mutually exclusive view modes
   const toggleReadingMode = useCallback(() => {
     setReadingMode((v) => {
       const next = !v;
-      if (next) setEditorOnly(false);
+      if (next) {
+        setEditorOnly(false);
+        setPreviewOnly(false);
+      }
       return next;
     });
   }, []);
@@ -177,10 +339,31 @@ export function App() {
   const toggleEditorOnly = useCallback(() => {
     setEditorOnly((v) => {
       const next = !v;
-      if (next) setReadingMode(false);
+      if (next) {
+        setReadingMode(false);
+        setPreviewOnly(false);
+      }
       return next;
     });
   }, []);
+  // breadcrumb pane toggles — symmetric show/hide for the two split-view panes
+  const editorVisible = !previewOnly;
+  const previewVisible = !editorOnly;
+  const handleToggleEditor = useCallback(() => {
+    // hiding the editor === previewOnly mode; showing it === clear previewOnly
+    setPreviewOnly((v) => {
+      const next = !v;
+      if (next) {
+        setEditorOnly(false);
+        setReadingMode(false);
+      }
+      return next;
+    });
+  }, []);
+  const handleTogglePreview = useCallback(() => {
+    // hiding preview === editorOnly mode
+    toggleEditorOnly();
+  }, [toggleEditorOnly]);
 
   // ⌘F only bound while reading — CM owns it in editor mode.
   const [findOpen, setFindOpen] = useState(false);
@@ -222,7 +405,7 @@ export function App() {
         `copied context · ${stats.files} file${stats.files === 1 ? "" : "s"} · ${stats.formattedTokens} tok`,
       );
     } catch (err) {
-      console.error("marka.md: context bundle copy failed", err);
+      console.error("marknote: context bundle copy failed", err);
       setLoadError({ message: `couldn't copy context bundle — ${String(err)}` });
     }
   }, [stagedPaths, activePath, source, rootPath, copyMarkdownCore, setLoadError]);
@@ -240,7 +423,7 @@ export function App() {
         if (!cancelled) setStagedTokenLabel(getContextBundleStats(files).formattedTokens);
       })
       .catch((err) => {
-        console.warn("marka.md: staged context stats failed", err);
+        console.warn("marknote: staged context stats failed", err);
         if (!cancelled) setStagedTokenLabel("?");
       });
     return () => {
@@ -263,7 +446,7 @@ export function App() {
         }
         window.localStorage.setItem(STORAGE_KEYS.lastSeenVersion, version);
       })
-      .catch((err) => console.warn("marka.md: version check failed", err));
+      .catch((err) => console.warn("marknote: version check failed", err));
     return () => {
       cancelled = true;
     };
@@ -279,6 +462,86 @@ export function App() {
     const t = estimateTokens(source);
     return { words: w, minutes: m, docTokens: t };
   }, [source]);
+
+  const headings = useMemo(() => extractHeadings(source), [source]);
+  const markdownIssues = useMemo(() => lintMarkdown(source), [source]);
+  const hasTextSelection = selectionRange.from !== selectionRange.to;
+  const selectionCharCount = hasTextSelection ? Math.abs(selectionRange.to - selectionRange.from) : 0;
+
+  const handleEditorSelectionChange = useCallback((range: TextRange) => {
+    setSelectionRange((prev) => (
+      prev.from === range.from && prev.to === range.to ? prev : range
+    ));
+    setAiSelectionScope(range.from !== range.to);
+  }, []);
+
+  const handleMarkdownAction = useCallback((action: MarkdownAction) => {
+    const selection = editorRef.current?.getSelection() ?? { from: source.length, to: source.length };
+    const edit = applyMarkdownAction(source, selection, action, {
+      textColor: editorTextColor,
+      highlightColor: editorHighlightColor,
+    });
+    setTranslatedSource(null);
+    editorRef.current?.replaceRange(edit.range, edit.insert, edit.selection);
+  }, [editorHighlightColor, editorTextColor, source]);
+
+  const appStyle = useMemo(() => ({
+    "--mdv-user-text-color": editorTextColor,
+    "--mdv-user-highlight-color": editorHighlightColor,
+    "--mdv-secret-hidden-color": secretHiddenColor,
+    "--mdv-secret-hidden-bg": secretHiddenBg,
+    "--mdv-secret-revealed-color": secretRevealedColor,
+    "--mdv-secret-revealed-bg": secretRevealedBg,
+  }) as CSSProperties, [
+    editorTextColor,
+    editorHighlightColor,
+    secretHiddenColor,
+    secretHiddenBg,
+    secretRevealedColor,
+    secretRevealedBg,
+  ]);
+
+  const handleInsertTemplate = useCallback((kind: "note" | "readme" | "prompt") => {
+    const selection = editorRef.current?.getSelection() ?? { from: source.length, to: source.length };
+    const edit = insertTemplate(source, selection, kind);
+    setTranslatedSource(null);
+    editorRef.current?.replaceRange(edit.range, edit.insert, edit.selection);
+  }, [source]);
+
+  const handleUndoEdit = useCallback(() => {
+    setTranslatedSource(null);
+    editorRef.current?.undo();
+  }, []);
+
+  const handleRedoEdit = useCallback(() => {
+    setTranslatedSource(null);
+    editorRef.current?.redo();
+  }, []);
+
+  const refreshSnapshots = useCallback(() => setSnapshots(listSnapshots()), []);
+
+  const handleCreateSnapshot = useCallback((label = "manual snapshot") => {
+    createSnapshot(source, activePath, label);
+    refreshSnapshots();
+  }, [source, activePath, refreshSnapshots]);
+
+  const handleRestoreSnapshot = useCallback((snapshot: Snapshot) => {
+    createSnapshot(source, activePath, "before restore");
+    setSource(snapshot.source);
+    setSnapshotsOpen(false);
+    refreshSnapshots();
+    window.requestAnimationFrame(() => editorRef.current?.goTo(0));
+  }, [source, activePath, setSource, refreshSnapshots]);
+
+  const handleDeleteSnapshot = useCallback((id: string) => {
+    deleteSnapshot(id);
+    refreshSnapshots();
+  }, [refreshSnapshots]);
+
+  const aiTargetRange = useCallback((): TextRange => {
+    if (hasTextSelection && aiSelectionScope) return selectionRange;
+    return { from: 0, to: source.length };
+  }, [aiSelectionScope, hasTextSelection, selectionRange, source.length]);
 
   // wraps useFileSession's saveAs to bump the sidebar tree + show landing toast.
   const saveAs = useCallback(async () => {
@@ -306,6 +569,280 @@ export function App() {
   const handleNewFile = useCallback(() => {
     startNewBuffer();
   }, [startNewBuffer]);
+
+  // revert when source / active file changes so we never show stale translation
+  useEffect(() => {
+    setTranslatedSource(null);
+  }, [activePath]);
+
+  const translateReady = openrouterKey.length > 0 && openrouterModel.length > 0;
+  const aiTooltip = !openrouterKey
+    ? "add an openrouter api key in settings"
+    : !openrouterModel
+      ? "pick a model in settings"
+      : undefined;
+  const translateTooltip = aiTooltip;
+
+  const handleTranslate = useCallback(async () => {
+    if (!translateReady || translating) return;
+    setTranslating(true);
+    try {
+      const translated = await translateMarkdown({
+        apiKey: openrouterKey,
+        model: openrouterModel,
+        targetLang: translateTargetLang,
+        source,
+        systemPrompt: translatePrompt,
+      });
+      setTranslatedSource(translated);
+    } catch (err) {
+      console.error("marknote: translate failed", err);
+      setLoadError({ message: `translate failed — ${String(err)}` });
+    } finally {
+      setTranslating(false);
+    }
+  }, [translateReady, translating, openrouterKey, openrouterModel, translateTargetLang, translatePrompt, source, setLoadError]);
+
+  const handleRevertTranslation = useCallback(() => setTranslatedSource(null), []);
+
+  const handleCorrectMarkdown = useCallback(async (rangeOverride?: TextRange) => {
+    if (!translateReady || correcting || !source.trim()) return;
+    const range = rangeOverride ?? aiTargetRange();
+    const target = source.slice(range.from, range.to);
+    if (!target.trim()) return;
+    setCorrecting(true);
+    try {
+      const corrected = await proofreadMarkdown({
+        apiKey: openrouterKey,
+        model: openrouterModel,
+        source: target,
+        systemPrompt: proofreadPrompt,
+      });
+      setTranslatedSource(null);
+      setAiReview({
+        title: "ai proofread",
+        original: target,
+        next: corrected,
+        range,
+      });
+    } catch (err) {
+      console.error("marknote: proofreading failed", err);
+      setLoadError({ message: `proofreading failed - ${String(err)}` });
+    } finally {
+      setCorrecting(false);
+    }
+  }, [translateReady, correcting, source, aiTargetRange, openrouterKey, openrouterModel, proofreadPrompt, setLoadError]);
+
+  const handlePromptifyMarkdown = useCallback(async (rangeOverride?: TextRange) => {
+    if (!translateReady || promptifying || !source.trim()) return;
+    const range = rangeOverride ?? aiTargetRange();
+    const target = source.slice(range.from, range.to);
+    if (!target.trim()) return;
+    setPromptifying(true);
+    try {
+      const prompt = await promptifyMarkdown({
+        apiKey: openrouterKey,
+        model: openrouterModel,
+        source: target,
+        systemPrompt: promptifyPrompt,
+      });
+      setTranslatedSource(null);
+      setAiReview({
+        title: "ai prompt",
+        original: target,
+        next: prompt,
+        range,
+      });
+    } catch (err) {
+      console.error("marknote: promptify failed", err);
+      setLoadError({ message: `promptify failed - ${String(err)}` });
+    } finally {
+      setPromptifying(false);
+    }
+  }, [translateReady, promptifying, source, aiTargetRange, openrouterKey, openrouterModel, promptifyPrompt, setLoadError]);
+
+  const handleTranslateMarkdown = useCallback(async (rangeOverride?: TextRange) => {
+    if (!translateReady || translating || !source.trim()) return;
+    const range = rangeOverride ?? aiTargetRange();
+    const target = source.slice(range.from, range.to);
+    if (!target.trim()) return;
+    const targetLanguage = LANGUAGES.find((lang) => lang.code === translateTargetLang)?.label ?? translateTargetLang;
+    setTranslating(true);
+    try {
+      const translated = await translateMarkdown({
+        apiKey: openrouterKey,
+        model: openrouterModel,
+        targetLang: translateTargetLang,
+        source: target,
+        systemPrompt: translatePrompt,
+      });
+      if (translated.trim() === target.trim()) {
+        setLoadError({
+          message: `translate returned no changes - target language is ${targetLanguage}; pick another language in settings if needed`,
+        });
+        return;
+      }
+      setTranslatedSource(null);
+      setAiReview({
+        title: `ai translate to ${targetLanguage}`,
+        original: target,
+        next: translated,
+        range,
+      });
+    } catch (err) {
+      console.error("marknote: translate failed", err);
+      setLoadError({ message: `translate failed - ${String(err)}` });
+    } finally {
+      setTranslating(false);
+    }
+  }, [
+    translateReady,
+    translating,
+    source,
+    aiTargetRange,
+    openrouterKey,
+    openrouterModel,
+    translateTargetLang,
+    translatePrompt,
+    setLoadError,
+  ]);
+
+  const applyAiReview = useCallback(() => {
+    if (!aiReview) return;
+    const { range, next } = aiReview;
+    createSnapshot(source, activePath, `before ${aiReview.title}`);
+    refreshSnapshots();
+    const nextSource = `${source.slice(0, range.from)}${next}${source.slice(range.to)}`;
+    setSource(nextSource);
+    setAiReview(null);
+    window.requestAnimationFrame(() => editorRef.current?.goTo(range.from + next.length));
+  }, [aiReview, source, activePath, refreshSnapshots, setSource]);
+
+  const previewSource = translatedSource ?? debouncedPreview;
+  const editorAiBusyLabel = correcting
+    ? "ai proofread..."
+    : promptifying
+      ? "turning into prompt..."
+      : translating
+        ? "translating..."
+        : null;
+
+  const closeEditorContextMenu = useCallback(() => setEditorContextMenu(null), []);
+
+  const handleEditorContextMenu = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const selection = editorRef.current?.getSelection() ?? { from: 0, to: 0 };
+    const hasSelection = selection.from !== selection.to;
+    setSelectionRange(selection);
+    setAiSelectionScope(hasSelection);
+    setEditorContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      range: hasSelection ? selection : { from: 0, to: source.length },
+      hasSelection,
+    });
+  }, [source.length]);
+
+  const replaceEditorRange = useCallback((range: TextRange, text: string) => {
+    setTranslatedSource(null);
+    editorRef.current?.replaceRange(range, text, {
+      from: range.from + text.length,
+      to: range.from + text.length,
+    });
+  }, []);
+
+  const editorContextItems = useMemo<ContextMenuItem[]>(() => {
+    if (!editorContextMenu) return [];
+    const { range, hasSelection } = editorContextMenu;
+    const targetRange = hasSelection ? range : { from: 0, to: source.length };
+    const selectedText = hasSelection ? source.slice(range.from, range.to) : "";
+    const aiHint = hasSelection ? "selection" : "file";
+    const targetLanguage = LANGUAGES.find((lang) => lang.code === translateTargetLang)?.label ?? translateTargetLang;
+    return [
+      {
+        label: "ai proofread",
+        icon: CheckCheck,
+        hint: aiHint,
+        disabled: !translateReady || correcting || !source.trim(),
+        onSelect: () => void handleCorrectMarkdown(targetRange),
+      },
+      {
+        label: "turn into prompt",
+        icon: WandSparkles,
+        hint: aiHint,
+        disabled: !translateReady || promptifying || !source.trim(),
+        onSelect: () => void handlePromptifyMarkdown(targetRange),
+      },
+      {
+        label: "translate",
+        icon: Languages,
+        hint: `${targetLanguage} · ${aiHint}`,
+        disabled: !translateReady || translating || !source.trim(),
+        onSelect: () => void handleTranslateMarkdown(targetRange),
+      },
+      "divider",
+      {
+        label: "copy",
+        icon: Copy,
+        disabled: !hasSelection,
+        onSelect: () => {
+          if (selectedText) void navigator.clipboard.writeText(selectedText);
+        },
+      },
+      {
+        label: "cut",
+        icon: Scissors,
+        disabled: !hasSelection,
+        onSelect: () => {
+          if (selectedText) void navigator.clipboard.writeText(selectedText);
+          replaceEditorRange(range, "");
+        },
+      },
+      {
+        label: "paste",
+        icon: Clipboard,
+        onSelect: () => {
+          void navigator.clipboard.readText().then((text) => {
+            if (!text) return;
+            const pasteRange = hasSelection ? range : selectionRange;
+            replaceEditorRange(pasteRange, text);
+          });
+        },
+      },
+      "divider",
+      {
+        label: "select all",
+        icon: TextCursorInput,
+        onSelect: () => {
+          const full = { from: 0, to: source.length };
+          setSelectionRange(full);
+          setAiSelectionScope(source.length > 0);
+          editorRef.current?.selectRange(full);
+        },
+      },
+      {
+        label: hasSelection ? "use selection for ai" : "ai uses whole file",
+        icon: MousePointer2,
+        hint: hasSelection ? "on" : "file",
+        disabled: !hasSelection,
+        onSelect: () => setAiSelectionScope(true),
+      },
+    ];
+  }, [
+    editorContextMenu,
+    source,
+    translateReady,
+    correcting,
+    promptifying,
+    translating,
+    translateTargetLang,
+    handleCorrectMarkdown,
+    handlePromptifyMarkdown,
+    handleTranslateMarkdown,
+    replaceEditorRange,
+    selectionRange,
+  ]);
 
   const contextItems = useMemo<ContextMenuItem[]>(() => {
     if (!contextMenu) return [];
@@ -360,7 +897,7 @@ export function App() {
             }
             bumpTree();
           } catch (err) {
-            console.error("marka.md: delete failed", err);
+            console.error("marknote: delete failed", err);
             setLoadError({ message: `couldn't delete: ${String(err)}` });
           }
         })();
@@ -369,10 +906,10 @@ export function App() {
     return items;
   }, [contextMenu, activePath, setActivePath, bumpTree]);
 
-  // OS "Open With → marka.md" from Finder — Rust emits marka:open-file
+  // OS "Open With → marknote" from Finder — Rust emits marknote:open-file
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    void listen<string>("marka:open-file", (event) => {
+    void listen<string>("marknote:open-file", (event) => {
       const path = event.payload;
       if (typeof path === "string" && path.length > 0) {
         void loadFile(path);
@@ -393,7 +930,7 @@ export function App() {
     const isOsFileDrag = (e: DragEvent) => {
       if (!e.dataTransfer) return false;
       // never engage on in-app sidebar drags
-      if (e.dataTransfer.types.includes("application/x-marka-path")) return false;
+      if (e.dataTransfer.types.includes("application/x-marknote-path")) return false;
       return e.dataTransfer.types.includes("Files");
     };
 
@@ -436,12 +973,12 @@ export function App() {
           const text = await firstMd.text();
           startNewBuffer(text);
         } catch (err) {
-          console.error("marka.md: file drop read failed", err);
+          console.error("marknote: file drop read failed", err);
           setLoadError({ message: `could not read ${firstMd.name} — ${err}` });
         }
       } else if (files.length > 0) {
         setLoadError({
-          message: "only .md / .markdown / .mdx files can be opened in marka.md",
+          message: "only .md / .markdown / .mdx / .txt files can be opened in marknote",
         });
       }
     };
@@ -483,7 +1020,7 @@ export function App() {
         e.preventDefault();
         if (activePath) {
           // existing file — only write if dirty
-          if (source !== savedContent) void saveNow(activePath, source);
+          if (dirty) void saveNow(activePath, source);
         } else {
           // untitled buffer — open native save dialog (resolves #17 save half + macOS parity)
           void saveAs();
@@ -546,7 +1083,7 @@ export function App() {
     [
       activePath,
       source,
-      savedContent,
+      dirty,
       saveNow,
       saveAs,
       handleOpenFile,
@@ -571,7 +1108,7 @@ export function App() {
         openFile: handleOpenFile,
         openFolder: handleOpenFolder,
         save: () => {
-          if (activePath && source !== savedContent) {
+          if (activePath && dirty) {
             void saveNow(activePath, source);
           }
         },
@@ -603,7 +1140,7 @@ export function App() {
       handleOpenFolder,
       activePath,
       source,
-      savedContent,
+      dirty,
       saveNow,
       sidebarOpen,
       copyMarkdown,
@@ -625,11 +1162,70 @@ export function App() {
   );
 
   const displayName = activePath ? basename(activePath) : undefined;
+  const editorWorkspace = (
+    <div className="mdv-editor-workspace">
+      <MarkdownToolbar
+        onAction={handleMarkdownAction}
+        onTemplate={handleInsertTemplate}
+        onSnapshot={() => handleCreateSnapshot()}
+        onShowSnapshots={() => {
+          refreshSnapshots();
+          setSnapshotsOpen(true);
+        }}
+        onUndo={handleUndoEdit}
+        onRedo={handleRedoEdit}
+        inspectorOpen={inspectorOpen}
+        onToggleInspector={() => setInspectorOpen((v) => !v)}
+        textColor={editorTextColor}
+        highlightColor={editorHighlightColor}
+      />
+      <div className="mdv-editor-workspace__body">
+        <div className="mdv-editor-workspace__main">
+          <Editor
+            ref={editorRef}
+            value={source}
+            onChange={setSource}
+            onSelectionChange={handleEditorSelectionChange}
+            onContextMenu={handleEditorContextMenu}
+            vimOn={vimOn}
+            onVimMode={setVimMode}
+            secretsHidden={secretsHidden}
+          />
+          {editorAiBusyLabel ? (
+            <div className="mdv-editor-ai-busy" role="status" aria-live="polite">
+              <span className="mdv-editor-ai-busy__spinner" aria-hidden />
+              <span>{editorAiBusyLabel}</span>
+            </div>
+          ) : null}
+        </div>
+        {inspectorOpen ? (
+          <MarkdownInspector
+            headings={headings}
+            issues={markdownIssues}
+            onGoTo={(pos) => editorRef.current?.goTo(pos)}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
 
   return (
     <div
-      className={`mdv-app${sidebarOpen ? " has-sidebar" : ""}${readingMode ? " is-reading" : ""}`}
+      className={`mdv-app${sidebarOpen ? " has-sidebar" : ""}${readingMode ? " is-reading" : ""}${dockMode !== "off" && !dockOpen ? ` is-docked is-docked-${dockMode}` : ""}`}
+      style={appStyle}
     >
+      {dockMode !== "off" && !dockOpen ? (
+        <button
+          type="button"
+          className={`mdv-dock-rail mdv-dock-rail--${dockMode}`}
+          onClick={handleDockTabClick}
+          aria-label="open marknote"
+          data-tooltip="open"
+        >
+          <Icon icon={dockMode === "left" ? ChevronRight : ChevronLeft} size={14} strokeWidth={1.8} />
+        </button>
+      ) : null}
+
       <TitleBar
         fileName={displayName}
         filePath={activePath}
@@ -654,12 +1250,53 @@ export function App() {
         onOpenFolder={handleOpenFolder}
         onCopyMarkdown={activePath || source ? () => void copyMarkdown() : undefined}
         copyPulse={copyPulse}
+        onCorrectMarkdown={source.trim() ? () => void handleCorrectMarkdown() : undefined}
+        correcting={correcting}
+        correctDisabled={!translateReady || correcting}
+        correctTooltip={aiTooltip}
+        onPromptifyMarkdown={source.trim() ? () => void handlePromptifyMarkdown() : undefined}
+        promptifying={promptifying}
+        promptifyDisabled={!translateReady || promptifying}
+        promptifyTooltip={aiTooltip}
+        aiSelectionAvailable={hasTextSelection}
+        aiSelectionActive={aiSelectionScope}
+        aiSelectionLabel={`${selectionCharCount} chars`}
+        onToggleAiSelection={() => setAiSelectionScope((v) => !v)}
+        onSave={() => {
+          if (activePath) {
+            if (dirty) void saveNow(activePath, source);
+          } else {
+            void saveAs();
+          }
+        }}
+        saveDisabled={activePath != null && !dirty}
+        onNavigateToFolder={(folder) => {
+          setRootPath(folder);
+          setSidebarOpen(true);
+        }}
+        editorVisible={editorVisible}
+        previewVisible={previewVisible}
+        onToggleEditor={handleToggleEditor}
+        onTogglePreview={handleTogglePreview}
+        secretsPresent={sourceHasSecrets(source)}
+        secretsHidden={secretsHidden}
+        onToggleSecrets={toggleSecrets}
       />
 
       <main className="mdv-shell">
         {readingMode ? (
           <>
-            <Preview source={debouncedPreview} />
+            <Preview
+              source={previewSource}
+              onTranslate={handleTranslate}
+              onRevertTranslation={handleRevertTranslation}
+              translating={translating}
+              translated={translatedSource != null}
+              translateDisabled={!translateReady}
+              translateTooltip={translateTooltip}
+              secretsHidden={secretsHidden}
+              onToggleSecrets={toggleSecrets}
+            />
             <ReadingFind
               open={findOpen}
               onClose={() => setFindOpen(false)}
@@ -676,9 +1313,16 @@ export function App() {
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
               onOpenFolder={handleOpenFolder}
+              onNewFileAtRoot={rootPath ? () => setNewEntry({ parent: rootPath, kind: "file" }) : undefined}
+              onNewFolderAtRoot={rootPath ? () => setNewEntry({ parent: rootPath, kind: "folder" }) : undefined}
               onSelectFile={(path) => void loadFile(path)}
+              onNavigateToFolder={(folder) => {
+                setRootPath(folder);
+                setSidebarOpen(true);
+              }}
               onMove={handleMove}
               onContextMenu={handleContextMenu}
+              onRequestRename={setEditingPath}
               stagedPaths={stagedPaths}
               stagedTokenLabel={stagedTokenLabel}
               onToggleStage={toggleStagedPath}
@@ -694,12 +1338,36 @@ export function App() {
             />
             {editorOnly ? (
               <div className="mdv-shell__editor-solo">
-                <Editor value={source} onChange={setSource} vimOn={vimOn} onVimMode={setVimMode} />
+                {editorWorkspace}
+              </div>
+            ) : previewOnly ? (
+              <div className="mdv-shell__editor-solo mdv-shell__preview-solo">
+                <Preview
+                  source={previewSource}
+                  onTranslate={handleTranslate}
+                  onRevertTranslation={handleRevertTranslation}
+                  translating={translating}
+                  translated={translatedSource != null}
+                  translateDisabled={!translateReady}
+                  translateTooltip={translateTooltip}
+                  secretsHidden={secretsHidden}
+                  onToggleSecrets={toggleSecrets}
+                />
               </div>
             ) : (
               <Splitter
-                left={<Editor value={source} onChange={setSource} vimOn={vimOn} onVimMode={setVimMode} />}
-                right={<Preview source={debouncedPreview} />}
+                left={editorWorkspace}
+                right={
+                  <Preview
+                    source={previewSource}
+                    onTranslate={handleTranslate}
+                    onRevertTranslation={handleRevertTranslation}
+                    translating={translating}
+                    translated={translatedSource != null}
+                    translateDisabled={!translateReady}
+                    translateTooltip={translateTooltip}
+                  />
+                }
               />
             )}
           </>
@@ -719,7 +1387,7 @@ export function App() {
                     try {
                       await openPath(loadError.path);
                     } catch (err) {
-                      console.error("marka.md: openPath failed", err);
+                      console.error("marknote: openPath failed", err);
                     }
                   }
                 },
@@ -816,10 +1484,61 @@ export function App() {
         onReplayTutorial={showWelcome}
       />
 
+      <AiReviewOverlay
+        open={aiReview != null}
+        title={aiReview?.title ?? "ai review"}
+        original={aiReview?.original ?? ""}
+        next={aiReview?.next ?? ""}
+        onApply={applyAiReview}
+        onClose={() => setAiReview(null)}
+      />
+
+      <SnapshotsOverlay
+        open={snapshotsOpen}
+        snapshots={snapshots}
+        onRestore={handleRestoreSnapshot}
+        onDelete={handleDeleteSnapshot}
+        onClose={() => setSnapshotsOpen(false)}
+      />
+
+      <SettingsOverlay
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        vimOn={vimOn}
+        onVimToggle={setVimOn}
+        openrouterKey={openrouterKey}
+        onOpenrouterKeyChange={setOpenrouterKey}
+        openrouterModel={openrouterModel}
+        onOpenrouterModelChange={setOpenrouterModel}
+        translateTargetLang={translateTargetLang}
+        onTranslateTargetLangChange={setTranslateTargetLang}
+        proofreadPrompt={proofreadPrompt}
+        onProofreadPromptChange={setProofreadPrompt}
+        promptifyPrompt={promptifyPrompt}
+        onPromptifyPromptChange={setPromptifyPrompt}
+        translatePrompt={translatePrompt}
+        onTranslatePromptChange={setTranslatePrompt}
+        editorTextColor={editorTextColor}
+        onEditorTextColorChange={setEditorTextColor}
+        editorHighlightColor={editorHighlightColor}
+        onEditorHighlightColorChange={setEditorHighlightColor}
+        secretHiddenColor={secretHiddenColor}
+        onSecretHiddenColorChange={setSecretHiddenColor}
+        secretHiddenBg={secretHiddenBg}
+        onSecretHiddenBgChange={setSecretHiddenBg}
+        secretRevealedColor={secretRevealedColor}
+        onSecretRevealedColorChange={setSecretRevealedColor}
+        secretRevealedBg={secretRevealedBg}
+        onSecretRevealedBgChange={setSecretRevealedBg}
+        onCheckForUpdates={UPDATES_ENABLED ? handleManualUpdateCheck : undefined}
+        dockMode={dockMode}
+        onDockModeChange={setDockMode}
+      />
+
       <AboutOverlay
         open={aboutOpen}
         onClose={() => setAboutOpen(false)}
-        onCheckForUpdates={handleManualUpdateCheck}
+        onCheckForUpdates={UPDATES_ENABLED ? handleManualUpdateCheck : undefined}
       />
 
       <WelcomeOverlay
@@ -839,12 +1558,21 @@ export function App() {
         onClose={closeContextMenu}
       />
 
+      <ContextMenu
+        open={editorContextMenu != null}
+        x={editorContextMenu?.x ?? 0}
+        y={editorContextMenu?.y ?? 0}
+        items={editorContextItems}
+        onClose={closeEditorContextMenu}
+      />
+
       <StatusBar
         fileName={displayName}
         words={words}
         minutes={minutes}
         docTokens={docTokens}
         onShowHelp={() => setHelpOpen(true)}
+        onShowSettings={() => setSettingsOpen(true)}
         vimMode={readingMode ? null : vimMode}
       />
     </div>

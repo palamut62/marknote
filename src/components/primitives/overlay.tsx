@@ -6,7 +6,7 @@ type OverlayProps = {
   children: ReactNode;
   ariaLabel: string;
   /** controls width preset — "palette" = 560px, "modal" = 580px */
-  variant?: "palette" | "modal";
+  variant?: "palette" | "modal" | "wide";
 };
 
 /**

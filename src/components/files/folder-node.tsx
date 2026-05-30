@@ -4,7 +4,7 @@ import { Icon } from "@/components/primitives";
 import type { FileEntry } from "@/lib";
 import { FileTree, type NewEntry } from "./file-tree";
 
-export const DRAG_MIME = "application/x-marka-path";
+export const DRAG_MIME = "application/x-marknote-path";
 
 function isDescendantPath(child: string, parent: string): boolean {
   if (child === parent) return true;
@@ -19,6 +19,10 @@ type FolderNodeProps = {
   onSelect: (path: string) => void;
   onMove?: (src: string, dstParent: string) => void;
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
+  /** double-click on the row name → start inline rename */
+  onRequestRename?: (path: string) => void;
+  /** double-click on a folder row → navigate into it (becomes the tree root). takes priority over rename. */
+  onNavigate?: (path: string) => void;
   stagedPaths?: readonly string[];
   onToggleStage?: (path: string) => void;
   editingPath?: string | null;
@@ -37,6 +41,8 @@ export function FolderNode({
   onSelect,
   onMove,
   onContextMenu,
+  onRequestRename,
+  onNavigate,
   stagedPaths = [],
   onToggleStage,
   editingPath,
@@ -97,6 +103,18 @@ export function FolderNode({
         className={`mdv-tree__row mdv-tree__row--folder${isDropTarget ? " is-drop-target" : ""}`}
         style={{ paddingLeft: `${8 + depth * 12}px` }}
         onClick={toggle}
+        onDoubleClick={(e) => {
+          if (onNavigate) {
+            e.preventDefault();
+            e.stopPropagation();
+            onNavigate(entry.path);
+            return;
+          }
+          if (!onRequestRename) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onRequestRename(entry.path);
+        }}
         onContextMenu={onCtx}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
@@ -119,6 +137,8 @@ export function FolderNode({
           onSelect={onSelect}
           onMove={onMove}
           onContextMenu={onContextMenu}
+          onRequestRename={onRequestRename}
+          onNavigate={onNavigate}
           stagedPaths={stagedPaths}
           onToggleStage={onToggleStage}
           editingPath={editingPath}
@@ -140,6 +160,7 @@ type FileNodeProps = {
   active: boolean;
   onSelect: (path: string) => void;
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
+  onRequestRename?: (path: string) => void;
   staged?: boolean;
   onToggleStage?: (path: string) => void;
   depth: number;
@@ -150,6 +171,7 @@ export function FileNode({
   active,
   onSelect,
   onContextMenu,
+  onRequestRename,
   staged = false,
   onToggleStage,
   depth,
@@ -183,6 +205,12 @@ export function FileNode({
         className={`mdv-tree__row mdv-tree__row--file${active ? " is-active" : ""}${staged ? " is-staged" : ""}`}
         style={{ paddingLeft: `${8 + depth * 12 + 4}px` }}
         onClick={handleClick}
+        onDoubleClick={(e) => {
+          if (!onRequestRename) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onRequestRename(entry.path);
+        }}
         onContextMenu={onCtx}
         onDragStart={onDragStart}
         title={entry.path}

@@ -269,7 +269,7 @@ export function buildCommands(actions: CommandActions): Command[] {
     {
       id: "demo",
       label: "show onboarding doc",
-      hint: "load the original 'welcome to marka.md' markdown into the editor",
+      hint: "load the original 'welcome to marknote' markdown into the editor",
       icon: BookOpen,
       category: "help",
       action: actions.loadDemo,
@@ -285,14 +285,14 @@ export function buildCommands(actions: CommandActions): Command[] {
     {
       id: "check-updates",
       label: "check for updates",
-      hint: "see if there's a newer version of marka.md",
+      hint: "see if there's a newer version of marknote",
       icon: Download,
       category: "help",
       action: actions.checkForUpdates,
     },
     {
       id: "about",
-      label: "about marka.md",
+      label: "about marknote",
       hint: "version, license, links",
       icon: Info,
       category: "help",

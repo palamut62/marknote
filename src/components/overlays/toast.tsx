@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Button, Icon } from "@/components/primitives";
-import sadUrl from "@/assets/mascot/sad.png";
-import exciteUrl from "@/assets/mascot/excite.png";
+import appIconUrl from "@/assets/brand/marka-app-icon.png";
+import aiIconUrl from "@/assets/brand/marka-ai-icon.png";
 
 export type ToastAction = {
   label: string;
@@ -53,7 +53,7 @@ export function Toast({
   }, [open, effectiveDuration, onDismiss]);
 
   if (!open) return null;
-  const art = variant === "info" ? exciteUrl : sadUrl;
+  const art = variant === "info" ? aiIconUrl : appIconUrl;
 
   const dismissWithExit = () => {
     setLeaving(true);

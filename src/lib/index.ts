@@ -23,6 +23,27 @@ export {
 export { startWindowDrag } from "./window-drag";
 export { exportPreviewToPdf, PdfExportError } from "./pdf-export";
 export { IS_MAC, IS_WINDOWS, IS_LINUX, displayKey, shortcutLabel } from "./platform";
+export { listOpenRouterModels, openrouterChat, type OpenRouterModel } from "./openrouter";
+export { getAutostartEnabled, setAutostartEnabled } from "./autostart";
+export { translateMarkdown, LANGUAGES, DEFAULT_TRANSLATE_PROMPT, type Language } from "./translate";
+export { proofreadMarkdown, DEFAULT_PROOFREAD_PROMPT } from "./proofread";
+export { promptifyMarkdown, DEFAULT_PROMPTIFY_PROMPT } from "./promptify";
+export {
+  applyMarkdownAction,
+  extractHeadings,
+  insertTemplate,
+  lintMarkdown,
+  type HeadingItem,
+  type MarkdownAction,
+  type MarkdownIssue,
+  type TextRange,
+} from "./markdown-tools";
+export {
+  createSnapshot,
+  deleteSnapshot,
+  listSnapshots,
+  type Snapshot,
+} from "./snapshots";
 export {
   pickFolder,
   pickMarkdownFile,

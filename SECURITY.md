@@ -1,7 +1,7 @@
 # security
 
-found a vulnerability in marka.md? please don't open a public issue.
+found a vulnerability in marknote? please don't open a public issue.
 
-email **enarlem10@gmail.com** with a description and reproduction steps. i'll respond within a few days.
+email **umutins62@hotmail.com** with a description and reproduction steps. i'll respond within a few days.
 
-thanks for keeping marka.md safe 🐙
+thanks for keeping marknote safe 🐙

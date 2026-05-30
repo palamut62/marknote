@@ -1,6 +1,6 @@
-export const DEMO_MARKDOWN = `# welcome to marka.md
+export const DEMO_MARKDOWN = `# welcome to marknote
 
-![](/mascot/write.png)
+![](/brand/marka-app-icon.png)
 
 a local markdown editor for the notes you share with ai.
 edit on the left. preview on the right. press **⌘.** for reading mode.
@@ -35,9 +35,9 @@ function copyContext(files: string[]): string {
 
 ---
 
-![](/mascot/excite.png)
+![](/brand/marka-ai-icon.png)
 
 ready when you are. **⌘N** for a fresh buffer, **⌘⇧O** to open a folder.
 
-_marka.md · open source · MIT_
+_marknote · open source · MIT_
 `;

@@ -63,7 +63,7 @@ jobs:
             if [ -z "$COMMITS" ]; then
               COMMITS="- (no commit changes since $PREV_TAG — version bump only)"
             fi
-            DIFF_URL="full diff: https://github.com/mattenarle10/markamd/compare/$PREV_TAG...${{ github.ref_name }}"
+            DIFF_URL="full diff: https://github.com/palamut62/marknote/compare/$PREV_TAG...${{ github.ref_name }}"
           fi
           echo "PREV_TAG=$PREV_TAG" >> "$GITHUB_OUTPUT"
           {
@@ -91,9 +91,9 @@ jobs:
               printf '# %s\n\n' "$TAG_NAME"
               printf '## What changed\n\n%s\n\n%s\n\n' "$COMMITS" "$DIFF_URL"
               printf '## Install\n\n'
-              printf '**macOS Apple Silicon**: `marka.md.dmg`\n'
-              printf '**macOS Intel**: `marka.md_intel.dmg`\n'
-              printf '**Windows**: `marka.md_*-setup.exe`\n'
+              printf '**macOS Apple Silicon**: `marknote.dmg`\n'
+              printf '**macOS Intel**: `marknote_intel.dmg`\n'
+              printf '**Windows**: `marknote_*-setup.exe`\n'
               printf '**Linux**: pick `.AppImage`, `.deb`, or `.rpm`\n\n'
               printf 'Existing users on auto-update get this on next launch.\n'
             fi
@@ -179,7 +179,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "marka.md ${{ github.ref_name }}"
+          releaseName: "marknote ${{ github.ref_name }}"
           releaseBody: ${{ steps.release_body.outputs.BODY }}
           # publish as a DRAFT so the matrix runners can both upload artifacts
           # (including their per-platform latest.json entries) without racing
@@ -192,12 +192,12 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
-      # tauri-action emits `marka.md_<version>_<arch>.dmg` by default. Rename
+      # tauri-action emits `marknote_<version>_<arch>.dmg` by default. Rename
       # per arch so users get clean filenames + the landing dropdown can keep
-      # linking to `marka.md.dmg` (apple-silicon default). Intel gets a clear
+      # linking to `marknote.dmg` (apple-silicon default). Intel gets a clear
       # `_intel` suffix. Both rename steps are guarded by their matrix target
       # so the two macOS legs don't race.
-      - name: rename dmg → marka.md.dmg (apple silicon)
+      - name: rename dmg → marknote.dmg (apple silicon)
         if: matrix.target == 'aarch64-apple-darwin' && success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -211,13 +211,13 @@ jobs:
           fi
           ASSET_ID=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets" --jq '.[] | select(.name | test("aarch64.*\\.dmg$")) | .id' | head -1)
           if [ -n "$ASSET_ID" ]; then
-            echo "renaming aarch64 dmg asset $ASSET_ID → marka.md.dmg"
-            gh api "repos/${{ github.repository }}/releases/assets/$ASSET_ID" -X PATCH -f name='marka.md.dmg'
+            echo "renaming aarch64 dmg asset $ASSET_ID → marknote.dmg"
+            gh api "repos/${{ github.repository }}/releases/assets/$ASSET_ID" -X PATCH -f name='marknote.dmg'
           else
             echo "no aarch64 dmg asset found — skipping rename"
           fi
 
-      - name: rename dmg → marka.md_intel.dmg (intel)
+      - name: rename dmg → marknote_intel.dmg (intel)
         if: matrix.target == 'x86_64-apple-darwin' && success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -231,8 +231,8 @@ jobs:
           fi
           ASSET_ID=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets" --jq '.[] | select(.name | test("x64.*\\.dmg$")) | .id' | head -1)
           if [ -n "$ASSET_ID" ]; then
-            echo "renaming intel dmg asset $ASSET_ID → marka.md_intel.dmg"
-            gh api "repos/${{ github.repository }}/releases/assets/$ASSET_ID" -X PATCH -f name='marka.md_intel.dmg'
+            echo "renaming intel dmg asset $ASSET_ID → marknote_intel.dmg"
+            gh api "repos/${{ github.repository }}/releases/assets/$ASSET_ID" -X PATCH -f name='marknote_intel.dmg'
           else
             echo "no dmg asset found — skipping rename"
           fi
@@ -256,25 +256,3 @@ jobs:
             --repo "${{ github.repository }}" \
             --draft=false \
             --latest
-
-  # fires a Vercel deploy hook after a release publishes so markamd.vercel.app
-  # rebuilds and picks up the new version automatically (no manual empty
-  # commit needed). gracefully no-ops if the secret isn't set yet.
-  # NOTE: GitHub Actions does not allow `secrets.*` in `if:` expressions —
-  # they must be evaluated through env first (same pattern as HAS_APPLE_CERT).
-  notify-site:
-    needs: publish-release
-    runs-on: ubuntu-latest
-    env:
-      HAS_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK != '' }}
-    steps:
-      - name: ping vercel deploy hook
-        if: env.HAS_HOOK == 'true'
-        env:
-          DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: |
-          echo "triggering markamd-site rebuild for ${{ github.ref_name }}"
-          curl -fsS -X POST "$DEPLOY_HOOK"
-      - name: no hook configured
-        if: env.HAS_HOOK != 'true'
-        run: echo "VERCEL_DEPLOY_HOOK secret not set — skipping site rebuild"

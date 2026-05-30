@@ -3,7 +3,7 @@ import { Download, Globe, Star, X } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button, Icon, Overlay } from "@/components/primitives";
-import mascotUrl from "@/assets/mascot/excite.png";
+import logoUrl from "@/assets/brand/marka-app-icon.png";
 
 type AboutOverlayProps = {
   open: boolean;
@@ -11,9 +11,9 @@ type AboutOverlayProps = {
   onCheckForUpdates?: () => void | Promise<void>;
 };
 
-const REPO_URL = "https://github.com/mattenarle10/markamd";
-const SITE_URL = "https://markamd.vercel.app";
-const AUTHOR_PERSONAL_URL = "https://mattenarle.com";
+const REPO_URL = "https://github.com/palamut62/marknote";
+const SITE_URL = "https://github.com/palamut62/marknote";
+const AUTHOR_PERSONAL_URL = "https://github.com/palamut62";
 
 let cachedVersion: string | null = null;
 
@@ -52,12 +52,12 @@ export function AboutOverlay({ open, onClose, onCheckForUpdates }: AboutOverlayP
     try {
       await openUrl(url);
     } catch (err) {
-      console.error("marka.md: openUrl failed", err);
+      console.error("marknote: openUrl failed", err);
     }
   };
 
   return (
-    <Overlay open={open} onClose={onClose} ariaLabel="about marka.md" variant="modal">
+    <Overlay open={open} onClose={onClose} ariaLabel="about marknote" variant="modal">
       <header className="mdv-about__header">
         <span className="mdv-about__eyebrow">about</span>
         <Button
@@ -70,7 +70,7 @@ export function AboutOverlay({ open, onClose, onCheckForUpdates }: AboutOverlayP
 
       <div className="mdv-about__body">
         <img
-          src={mascotUrl}
+          src={logoUrl}
           alt=""
           aria-hidden
           width={88}
@@ -79,7 +79,7 @@ export function AboutOverlay({ open, onClose, onCheckForUpdates }: AboutOverlayP
           draggable={false}
           className="mdv-about__art"
         />
-        <div className="mdv-about__brand">marka.md</div>
+        <div className="mdv-about__brand">marknote</div>
         <div className="mdv-about__version">
           <span className="mdv-about__version-num">{version ? `v${version}` : "v…"}</span>
           <span className="mdv-about__dot" aria-hidden> · </span>
@@ -115,7 +115,7 @@ export function AboutOverlay({ open, onClose, onCheckForUpdates }: AboutOverlayP
             onClick={() => void handleOpen(SITE_URL)}
           >
             <Icon icon={Globe} size={13} strokeWidth={1.5} />
-            markamd.vercel.app
+            github.com/palamut62/marknote
           </button>
         </div>
       </div>
@@ -126,7 +126,7 @@ export function AboutOverlay({ open, onClose, onCheckForUpdates }: AboutOverlayP
           className="mdv-about__footer-link"
           onClick={() => void handleOpen(AUTHOR_PERSONAL_URL)}
         >
-          mattenarle.com
+          github.com/palamut62
         </button>
       </footer>
     </Overlay>

@@ -11,11 +11,180 @@
   min-width: 0;
 }
 
-/* editor-only mode (#28) — preview pane hidden, editor fills remaining width */
+/* editor-only mode (#28) — preview pane hidden, editor fills remaining width.
+   The same wrapper is reused for preview-only via the .mdv-shell__preview-solo
+   modifier. Prose fills its pane natively (see prose.css), no extra rule needed. */
 .mdv-shell__editor-solo {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+}
+
+.mdv-editor-workspace {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdv-editor-workspace__body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+}
+
+.mdv-editor-workspace__main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mdv-mdtools {
+  height: 34px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface, var(--bg)) 82%, var(--bg));
+  -webkit-app-region: no-drag;
+}
+
+.mdv-mdtools__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.mdv-mdtools__btn,
+.mdv-mdtools__template {
+  height: 23px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  transition: background var(--dur-fast) var(--easing), color var(--dur-fast) var(--easing);
+}
+
+.mdv-mdtools__btn {
+  width: 24px;
+  padding: 0;
+}
+
+.mdv-mdtools__template {
+  padding: 0 7px;
+}
+
+.mdv-mdtools__btn:hover,
+.mdv-mdtools__btn.is-active,
+.mdv-mdtools__template:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.mdv-mdtools__btn--push {
+  margin-left: auto;
+}
+
+.mdv-mdtools__btn--swatch {
+  position: relative;
+}
+
+.mdv-mdtools__swatch {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 18%, transparent);
+}
+
+.mdv-mdinspect {
+  width: 250px;
+  flex: 0 0 250px;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface, var(--bg)) 75%, var(--bg));
+  padding: 12px 10px 18px;
+  font-family: var(--font-mono);
+}
+
+.mdv-mdinspect__section + .mdv-mdinspect__section {
+  margin-top: 18px;
+}
+
+.mdv-mdinspect__title {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mdv-mdinspect__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mdv-mdinspect__item,
+.mdv-mdinspect__issue {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  width: 100%;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 11px;
+}
+
+.mdv-mdinspect__item:hover,
+.mdv-mdinspect__issue:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--fg);
+}
+
+.mdv-mdinspect__issue {
+  color: color-mix(in srgb, var(--accent) 75%, var(--muted));
+}
+
+.mdv-mdinspect__line {
+  color: var(--muted);
+  opacity: 0.7;
+  font-size: 10px;
+}
+
+.mdv-mdinspect__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mdv-mdinspect__empty {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 /* splitter */
@@ -63,6 +232,56 @@
 
 .mdv-editor .cm-editor {
   height: 100%;
+}
+
+.mdv-editor-ai-busy {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(260px, calc(100% - 28px));
+  height: 30px;
+  padding: 0 11px 0 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface, var(--bg)) 90%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--shadow, #000) 12%, transparent);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+  animation: mdv-editor-ai-busy-in 160ms var(--easing) both;
+}
+
+.mdv-editor-ai-busy__spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  animation: mdv-editor-ai-spin 760ms linear infinite;
+}
+
+@keyframes mdv-editor-ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes mdv-editor-ai-busy-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* find/replace panel */
@@ -155,10 +374,123 @@
 
 /* preview pane wrapper */
 .mdv-preview {
+  position: relative;
   height: 100%;
   overflow: auto;
   padding: 20px 28px 80px;
   user-select: text;
+}
+
+/* secret-mask toggle — sits to the left of the translate icon */
+.mdv-preview__secrets {
+  position: absolute;
+  top: 10px;
+  right: 46px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--surface-2, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--dur-base) var(--easing), color var(--dur-base) var(--easing);
+}
+
+.mdv-preview__secrets:hover {
+  background: var(--surface-3, rgba(0, 0, 0, 0.08));
+  color: var(--fg);
+}
+
+.mdv-preview__secrets.is-revealed {
+  background: var(--accent, #ff8a4c);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* editor-side mask widget (CodeMirror Decoration.replace) */
+.mdv-editor .cm-secret-mask {
+  display: inline;
+  font-family: var(--font-mono);
+  background: var(--mdv-secret-hidden-bg, color-mix(in srgb, var(--muted, #888) 24%, transparent));
+  color: var(--mdv-secret-hidden-color, var(--muted));
+  border-radius: 4px;
+  padding: 0 5px;
+  letter-spacing: 0.06em;
+  user-select: none;
+}
+
+.mdv-editor .cm-md-color-tag-hidden {
+  display: inline-block;
+  width: 0;
+  max-width: 0;
+  overflow: hidden;
+}
+
+/* masked / revealed secret pill inside prose */
+.mdv-prose .mdv-secret {
+  display: inline;
+  font-family: var(--font-mono);
+  background: var(--mdv-secret-revealed-bg, color-mix(in srgb, var(--muted, #888) 18%, transparent));
+  color: var(--mdv-secret-revealed-color, var(--fg));
+  border-radius: 4px;
+  padding: 0 5px;
+  letter-spacing: 0.02em;
+  transition: background var(--dur-fast) var(--easing);
+}
+
+.mdv-prose .mdv-secret.is-hidden {
+  color: var(--mdv-secret-hidden-color, var(--muted));
+  background: var(--mdv-secret-hidden-bg, color-mix(in srgb, var(--muted, #888) 24%, transparent));
+  letter-spacing: 0.06em;
+  user-select: none;
+  cursor: default;
+}
+
+/* translate button — floats at top-right of the preview pane */
+.mdv-preview__translate {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--surface-2, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--dur-base) var(--easing), color var(--dur-base) var(--easing);
+}
+
+.mdv-preview__translate:hover:not(:disabled) {
+  background: var(--surface-3, rgba(0, 0, 0, 0.08));
+  color: var(--fg);
+}
+
+.mdv-preview__translate:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mdv-preview__translate.is-translated {
+  background: var(--accent, #ff8a4c);
+  color: #fff;
+  border-color: transparent;
+}
+
+.mdv-preview__translate.is-busy svg {
+  animation: mdv-spin 0.9s linear infinite;
+}
+
+@keyframes mdv-spin {
+  to { transform: rotate(360deg); }
 }
 
 .mdv-preview__empty {

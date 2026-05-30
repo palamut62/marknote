@@ -1,0 +1,339 @@
+/* Settings overlay — shares mdv-help__ layout primitives from help.css,
+   only adds the per-row form controls (select / slider / switch / button). */
+
+/* tab strip — sits below the header, above the body */
+.mdv-settings__tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 16px 0;
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  background: var(--surface, transparent);
+}
+
+.mdv-settings__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  margin-bottom: -1px;
+  transition: color var(--dur-base) var(--easing),
+    border-color var(--dur-base) var(--easing);
+}
+
+.mdv-settings__tab:hover {
+  color: var(--fg);
+}
+
+.mdv-settings__tab.is-active {
+  color: var(--accent, #ff8a4c);
+  border-bottom-color: var(--accent, #ff8a4c);
+}
+
+.mdv-settings__tab:focus-visible {
+  outline: 1px solid var(--accent, currentColor);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+
+.mdv-settings__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--fg);
+}
+
+.mdv-settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+}
+
+.mdv-settings__row:last-child {
+  border-bottom: 0;
+}
+
+.mdv-settings__row--stack {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mdv-settings__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.mdv-settings__label > span:first-child {
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.mdv-settings__hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mdv-settings__control {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  max-width: 60%;
+  min-width: 0;
+}
+
+.mdv-settings__select {
+  appearance: none;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--fg);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 5px 26px 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.mdv-settings__select:focus-visible {
+  outline: 1px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}
+
+.mdv-settings__slider {
+  width: 160px;
+  accent-color: var(--accent, currentColor);
+}
+
+.mdv-settings__switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  /* off-state track: muted color mix so it's visible on both light & dark surfaces */
+  background: color-mix(in srgb, var(--muted, #888) 35%, transparent);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--dur-base) var(--easing),
+    border-color var(--dur-base) var(--easing);
+}
+
+.mdv-settings__switch:hover:not(.is-on) {
+  background: color-mix(in srgb, var(--muted, #888) 50%, transparent);
+}
+
+.mdv-settings__switch.is-on {
+  background: var(--accent, #ff8a4c);
+  border-color: transparent;
+}
+
+.mdv-settings__switch-thumb {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  /* always white thumb — contrasts against both muted-grey off track and accent on track */
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transform: translateY(-50%);
+  transition: left var(--dur-base) var(--easing);
+}
+
+.mdv-settings__switch.is-on .mdv-settings__switch-thumb {
+  left: calc(100% - 16px);
+}
+
+.mdv-settings__switch:focus-visible {
+  outline: 1px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}
+
+.mdv-settings__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--fg);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--dur-base) var(--easing);
+}
+
+.mdv-settings__btn:hover:not(:disabled) {
+  background: var(--surface-3, rgba(255, 255, 255, 0.1));
+}
+
+.mdv-settings__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mdv-settings__input {
+  width: 240px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--fg);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.mdv-settings__input:focus-visible {
+  outline: 1px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}
+
+.mdv-settings__control--key {
+  gap: 6px;
+}
+
+.mdv-settings__control--model {
+  gap: 6px;
+  /* prevent the populated <select> from widening to the longest model name */
+  min-width: 0;
+}
+
+.mdv-settings__control--model .mdv-settings__select {
+  /* fixed width so 300+ long option names don't blow up the row */
+  width: 240px;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.mdv-settings__control--color {
+  gap: 8px;
+}
+
+.mdv-settings__color {
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mdv-settings__color::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.mdv-settings__color::-webkit-color-swatch {
+  border: 0;
+  border-radius: 4px;
+}
+
+.mdv-settings__color-value {
+  min-width: 64px;
+  color: var(--muted);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+}
+
+.mdv-settings__color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.mdv-settings__color-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mdv-settings__control--key .mdv-settings__input {
+  /* shrink with the row instead of forcing the 240px static width */
+  width: auto;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.mdv-settings__icon-btn {
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--fg);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 5px 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-base) var(--easing);
+}
+
+.mdv-settings__icon-btn:hover {
+  background: var(--surface-3, rgba(255, 255, 255, 0.1));
+}
+
+.mdv-settings__prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.mdv-settings__prompt .mdv-settings__btn {
+  align-self: flex-end;
+}
+
+.mdv-settings__textarea {
+  width: 100%;
+  min-height: 132px;
+  resize: vertical;
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--fg);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.45;
+  outline: none;
+}
+
+.mdv-settings__textarea:focus-visible {
+  outline: 1px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}

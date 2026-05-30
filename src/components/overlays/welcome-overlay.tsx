@@ -1,11 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, FolderOpen, Sparkles } from "lucide-react";
 import { Button, Icon, Kbd, Overlay, Shortcut } from "@/components/primitives";
-import logoUrl from "@/assets/mascot/mdview-transpa-bg.png";
-import notebookUrl from "@/assets/mascot/notebook.png";
-import penUrl from "@/assets/mascot/pen.png";
-import inspectUrl from "@/assets/mascot/inspect.png";
-import exciteUrl from "@/assets/mascot/excite.png";
+import logoUrl from "@/assets/brand/marka-app-icon.png";
+import aiIconUrl from "@/assets/brand/marka-ai-icon.png";
+import fileIconUrl from "@/assets/brand/marka-file-icon.png";
+import trayIconUrl from "@/assets/brand/marka-tray-icon.png";
 
 type WelcomeOverlayProps = {
   open: boolean;
@@ -22,7 +21,7 @@ type Slide = {
 const SLIDES: Slide[] = [
   {
     mascot: logoUrl,
-    title: "welcome to marka.md",
+    title: "welcome to marknote",
     body: (
       <>
         a local markdown editor built around one loop:{" "}
@@ -31,7 +30,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    mascot: notebookUrl,
+    mascot: fileIconUrl,
     title: "your context library",
     body: (
       <>
@@ -40,7 +39,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    mascot: penUrl,
+    mascot: logoUrl,
     title: "write side by side",
     body: (
       <>
@@ -49,7 +48,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    mascot: inspectUrl,
+    mascot: aiIconUrl,
     title: "read, then share",
     body: (
       <>
@@ -58,7 +57,7 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    mascot: exciteUrl,
+    mascot: trayIconUrl,
     title: "you're set",
     body: (
       <>
@@ -106,7 +105,7 @@ export function WelcomeOverlay({ open, onClose, onOpenFolder }: WelcomeOverlayPr
   }, [open, isLast, onClose, onOpenFolder]);
 
   return (
-    <Overlay open={open} onClose={onClose} ariaLabel="welcome to marka.md" variant="modal">
+    <Overlay open={open} onClose={onClose} ariaLabel="welcome to marknote" variant="modal">
       <div className="mdv-welcome">
         <div className="mdv-welcome__slide" key={step}>
           <img

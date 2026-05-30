@@ -1,5 +1,5 @@
 import { FileText } from "lucide-react";
-import inspectUrl from "@/assets/mascot/inspect.png";
+import dropIconUrl from "@/assets/brand/marka-file-icon.png";
 
 type DropOverlayProps = {
   active: boolean;
@@ -11,7 +11,7 @@ export function DropOverlay({ active }: DropOverlayProps) {
     <div className="mdv-drop" role="status" aria-live="polite">
       <div className="mdv-drop__panel">
         <img
-          src={inspectUrl}
+          src={dropIconUrl}
           alt=""
           aria-hidden
           width={120}

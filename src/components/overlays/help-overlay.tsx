@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Sparkles, X } from "lucide-react";
 import { Button, Icon, Kbd, Overlay, Shortcut } from "@/components/primitives";
 import { shortcutLabel } from "@/lib";
-import writeUrl from "@/assets/mascot/write.png";
+import helpIconUrl from "@/assets/brand/marka-ai-icon.png";
 
 type HelpOverlayProps = {
   open: boolean;
@@ -59,7 +59,7 @@ const GROUPS: Group[] = [
 ];
 
 const TIPS = [
-  "marka.md is built around one loop: collect notes → write → share with ai. nothing leaves your machine until you press copy.",
+  "marknote is built around one loop: collect notes → write → share with ai. nothing leaves your machine until you press copy.",
   "open a folder to turn the sidebar into your context library. tap the 🔍 to search every .md across the tree.",
   "press ⌘. for distraction-free reading mode — great for proofing before pasting into any ai chat.",
   "⌘⇧C copies the current file as plain markdown. drop it straight into any chat.",
@@ -82,11 +82,11 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
   }, [open, onReplayTutorial, onClose]);
 
   return (
-    <Overlay open={open} onClose={onClose} ariaLabel="how to use marka.md" variant="modal">
+    <Overlay open={open} onClose={onClose} ariaLabel="how to use marknote" variant="modal">
       <header className="mdv-help__header">
         <div className="mdv-help__title">
           <img
-            src={writeUrl}
+            src={helpIconUrl}
             alt=""
             aria-hidden
             width={36}
@@ -95,7 +95,7 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
             className="mdv-help__art"
           />
           <div className="mdv-help__title-text">
-            <span className="mdv-help__brand">marka.md</span>
+            <span className="mdv-help__brand">marknote</span>
             <span className="mdv-help__subtitle">keyboard + tips</span>
           </div>
         </div>
@@ -144,7 +144,7 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
       </div>
 
       <footer className="mdv-help__footer">
-        <span>marka.md · open source · MIT · github.com/mattenarle10/markamd</span>
+        <span>marknote · open source · MIT · github.com/palamut62/marknote</span>
         {onReplayTutorial ? (
           <button
             type="button"

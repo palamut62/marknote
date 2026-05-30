@@ -17,6 +17,6 @@ export function startWindowDrag(e: ReactMouseEvent<HTMLElement>): void {
   void getCurrentWindow()
     .startDragging()
     .catch((err) => {
-      console.warn("marka.md: startDragging failed", err);
+      console.warn("marknote: startDragging failed", err);
     });
 }

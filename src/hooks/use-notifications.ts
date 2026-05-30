@@ -40,7 +40,7 @@ export function useNotifications(): UseNotificationsResult {
       window.setTimeout(() => setCopyPulse(false), 1200);
       window.setTimeout(() => setCopyToast(null), 2200);
     } catch (err) {
-      console.error("marka.md: copy failed", err);
+      console.error("marknote: copy failed", err);
     }
   }, []);
 

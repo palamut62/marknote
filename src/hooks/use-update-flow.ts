@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { applyUpdate, checkForUpdate } from "@/lib/updater";
+import { applyUpdate, checkForUpdate, UPDATES_ENABLED } from "@/lib/updater";
 import type { LoadError } from "./use-file-session";
 
 type UseUpdateFlowArgs = {
@@ -25,6 +25,7 @@ export function useUpdateFlow({ onError }: UseUpdateFlowArgs): UseUpdateFlowResu
   // first). Tauri verifies the signature internally — anything not signed by
   // our private updater key is rejected before the toast even appears.
   useEffect(() => {
+    if (!UPDATES_ENABLED) return;
     const timer = window.setTimeout(async () => {
       const result = await checkForUpdate();
       if (result.status === "available") {
@@ -41,7 +42,7 @@ export function useUpdateFlow({ onError }: UseUpdateFlowArgs): UseUpdateFlowResu
       await applyUpdate();
       // process will relaunch — control rarely returns here
     } catch (err) {
-      console.error("marka.md: update install failed", err);
+      console.error("marknote: update install failed", err);
       onError({
         message: `couldn't install update — ${err instanceof Error ? err.message : err}`,
       });

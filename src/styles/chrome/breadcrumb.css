@@ -56,6 +56,29 @@
   color: var(--fg);
 }
 
+/* clickable folder segment — explorer-style navigation */
+.mdv-breadcrumb__seg--nav {
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  margin: -2px 0;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color var(--dur-base) var(--easing), background var(--dur-base) var(--easing);
+}
+
+.mdv-breadcrumb__seg--nav:hover {
+  color: var(--fg);
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+}
+
+.mdv-breadcrumb__seg--nav:focus-visible {
+  outline: 1px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}
+
 .mdv-breadcrumb__placeholder {
   color: var(--muted);
   font-style: italic;
@@ -164,6 +187,50 @@
 
 .mdv-copybtn.is-copied .mdv-copybtn__icon--copy { opacity: 0; transform: scale(0.5); }
 .mdv-copybtn.is-copied .mdv-copybtn__icon--check { opacity: 1; transform: scale(1); }
+
+.mdv-ai-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  margin: 0 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--easing),
+    background var(--dur-fast) var(--easing),
+    border-color var(--dur-fast) var(--easing),
+    transform var(--dur-fast) var(--easing);
+}
+
+.mdv-ai-scope:hover {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.mdv-ai-scope.is-active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.mdv-ai-scope:active {
+  transform: scale(0.96);
+}
+
+.mdv-ai-scope__label {
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 @keyframes mdv-copy-pulse {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); }

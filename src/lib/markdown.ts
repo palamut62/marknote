@@ -48,7 +48,7 @@ function getHighlighter(): Promise<Highlighter> {
         return h;
       })
       .catch((err) => {
-        console.error("marka.md: shiki highlighter init failed", err);
+        console.error("marknote: shiki highlighter init failed", err);
         highlighterPromise = null;
         throw err;
       });
@@ -115,6 +115,20 @@ const md = new MarkdownIt({
 md.use(taskLists, { enabled: false, label: true });
 md.use(mark);
 
+function enableSafeColorTags(html: string): string {
+  const colorValue = "(#[0-9a-fA-F]{6}|var\\(--mdv-user-text-color\\))";
+  const highlightValue = "(#[0-9a-fA-F]{6}|var\\(--mdv-user-highlight-color\\))";
+  return html
+    .replace(
+      new RegExp(`&lt;span style=&quot;color: ${colorValue}&quot;&gt;([\\s\\S]*?)&lt;\\/span&gt;`, "g"),
+      '<span style="color: $1">$2</span>',
+    )
+    .replace(
+      new RegExp(`&lt;mark style=&quot;background: ${highlightValue}&quot;&gt;([\\s\\S]*?)&lt;\\/mark&gt;`, "g"),
+      '<mark style="background: $1">$2</mark>',
+    );
+}
+
 export async function ensureMarkdownReady(): Promise<void> {
   await getHighlighter();
 }
@@ -125,5 +139,5 @@ export async function renderMarkdown(src: string, theme: Theme): Promise<string>
   await ensureThemeLoaded(h, shikiTheme);
   await ensureLangsLoaded(h, extractLangs(src));
   activeShikiTheme = shikiTheme;
-  return md.render(src);
+  return enableSafeColorTags(md.render(src));
 }

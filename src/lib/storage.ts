@@ -10,6 +10,22 @@ export const STORAGE_KEYS = {
   lastSeenVersion: "mdview.lastSeenVersion",
   recentFiles: "mdview.recent.files",
   vimMode: "mdview.vim",
+  openrouterKey: "mdview.openrouter.key",
+  openrouterModel: "mdview.openrouter.model",
+  translateTargetLang: "mdview.translate.targetLang",
+  proofreadPrompt: "mdview.ai.prompt.proofread",
+  promptifyPrompt: "mdview.ai.prompt.promptify",
+  translatePrompt: "mdview.ai.prompt.translate",
+  snapshots: "mdview.snapshots",
+  autostart: "mdview.autostart",
+  secretsHidden: "mdview.secrets.hidden",
+  editorTextColor: "mdview.editor.textColor",
+  editorHighlightColor: "mdview.editor.highlightColor",
+  secretHiddenColor: "mdview.secrets.hiddenColor",
+  secretHiddenBg: "mdview.secrets.hiddenBg",
+  secretRevealedColor: "mdview.secrets.revealedColor",
+  secretRevealedBg: "mdview.secrets.revealedBg",
+  dockMode: "mdview.dock.mode",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
