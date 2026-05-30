@@ -28,6 +28,7 @@ import {
   useDebouncedValue,
   useFileOps,
   useFileSession,
+  useFileWatcher,
   useNotifications,
   useOverlays,
   usePersistedState,
@@ -138,6 +139,10 @@ export function App() {
     startNewBuffer,
     onError: setLoadError,
   });
+
+  // refresh the sidebar tree when the open folder changes on disk (e.g. a file
+  // dropped in from outside the app). polls the root dir mtime like the file watcher.
+  useFileWatcher(rootPath, bumpTree);
 
   const {
     paletteOpen,
