@@ -154,6 +154,21 @@ test("removing the last style unwraps a combined span back to text", () => {
   expect(edit.next).toBe("word");
 });
 
+test("highlight applies to the whole span even from a partial / cursor selection", () => {
+  const colored = '<span style="color: #ff0000">hello world</span>';
+  const innerStart = '<span style="color: #ff0000">'.length;
+  // select just "world" inside the colored phrase
+  const partial = applyMarkdownAction(colored, at(colored, innerStart + 6, innerStart + 11), "highlight", {
+    highlightColor: "#fde047",
+  });
+  expect(partial.next).toBe('<span style="color: #ff0000; background: #fde047">hello world</span>');
+  // a bare cursor inside the span also works
+  const cursor = applyMarkdownAction(colored, at(colored, innerStart + 2, innerStart + 2), "highlight", {
+    highlightColor: "#fde047",
+  });
+  expect(cursor.next).toBe('<span style="color: #ff0000; background: #fde047">hello world</span>');
+});
+
 test("highlight removal works on a legacy mark tag", () => {
   const legacy = '<mark style="background: #fde047">word</mark>';
   const edit = applyMarkdownAction(legacy, at(legacy, 0, legacy.length), "highlight", {

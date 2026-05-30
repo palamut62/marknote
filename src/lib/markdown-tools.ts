@@ -159,29 +159,19 @@ function parseStyle(style: string): SpanStyle {
 
 /**
  * Find a styled inline wrapper (`<span style="…">` we emit, or a legacy
- * `<mark style="…">`) that either IS the selection or hugs it. Returns the full
- * tag range, its inner text, and the styles it carries.
+ * `<mark style="…">`) that ENCLOSES the selection. Scans every styled tag in the
+ * source and returns the one whose full range contains the selection — so it
+ * works whether the user selected the inner text, the whole tag, or anything in
+ * between, instead of requiring pixel-perfect selection boundaries.
  */
 function findStyledWrapper(source: string, range: TextRange): StyledWrapper | null {
-  const selected = source.slice(range.from, range.to);
-  for (const tag of ["span", "mark"] as const) {
-    const exact = new RegExp(`^<${tag} style="([^"]*)">([\\s\\S]*)</${tag}>$`).exec(selected);
-    if (exact) {
-      return { from: range.from, to: range.to, text: exact[2], ...parseStyle(exact[1]) };
-    }
-  }
-  for (const tag of ["span", "mark"] as const) {
-    const close = `</${tag}>`;
-    if (source.slice(range.to, range.to + close.length) === close) {
-      const om = new RegExp(`<${tag} style="([^"]*)">$`).exec(source.slice(0, range.from));
-      if (om) {
-        return {
-          from: om.index,
-          to: range.to + close.length,
-          text: selected,
-          ...parseStyle(om[1]),
-        };
-      }
+  const tagRe = /<(span|mark) style="([^"]*)">([\s\S]*?)<\/\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(source)) !== null) {
+    const from = m.index;
+    const to = from + m[0].length;
+    if (range.from >= from && range.to <= to) {
+      return { from, to, text: m[3], ...parseStyle(m[2]) };
     }
   }
   return null;
