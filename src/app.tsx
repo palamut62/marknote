@@ -46,14 +46,11 @@ import {
   dirname,
   estimateTokens,
   exportPreviewToPdf,
-  formatContextBundle,
-  getContextBundleStats,
   getWhatsNewToastMessage,
   isMarkdownPath,
   PdfExportError,
   pickFolder,
   pickMarkdownFile,
-  readContextFiles,
   removeEntry,
   STORAGE_KEYS,
   DEFAULT_PROOFREAD_PROMPT,
@@ -290,8 +287,6 @@ export function App() {
     void expandDock(dockMode as Exclude<DockMode, "off">).then(() => setDockOpen(true));
   }, [dockMode]);
 
-  const [stagedPaths, setStagedPaths] = useState<string[]>([]);
-  const [stagedTokenLabel, setStagedTokenLabel] = useState("0");
   const [whatsNewVersion, setWhatsNewVersion] = useState<string | null>(null);
 
   const handleToggleSidebar = useCallback(() => {
@@ -383,57 +378,7 @@ export function App() {
 
   const copyMarkdown = useCallback(() => copyMarkdownCore(source), [copyMarkdownCore, source]);
 
-  const toggleStagedPath = useCallback((path: string) => {
-    setStagedPaths((prev) =>
-      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
-    );
-  }, []);
-
-  const clearContextBundle = useCallback(() => setStagedPaths([]), []);
-
-  const copyContextBundle = useCallback(async () => {
-    if (stagedPaths.length === 0) {
-      setLoadError({ message: "stage files from the sidebar first" });
-      return;
-    }
-    try {
-      const files = await readContextFiles(stagedPaths, activePath, source);
-      const bundle = formatContextBundle(files, rootPath);
-      const stats = getContextBundleStats(files);
-      await copyMarkdownCore(
-        bundle,
-        `copied context · ${stats.files} file${stats.files === 1 ? "" : "s"} · ${stats.formattedTokens} tok`,
-      );
-    } catch (err) {
-      console.error("marknote: context bundle copy failed", err);
-      setLoadError({ message: `couldn't copy context bundle — ${String(err)}` });
-    }
-  }, [stagedPaths, activePath, source, rootPath, copyMarkdownCore, setLoadError]);
-
   const debouncedPreview = useDebouncedValue(source, 50);
-
-  useEffect(() => {
-    if (stagedPaths.length === 0) {
-      setStagedTokenLabel("0");
-      return;
-    }
-    let cancelled = false;
-    void readContextFiles(stagedPaths, activePath, source)
-      .then((files) => {
-        if (!cancelled) setStagedTokenLabel(getContextBundleStats(files).formattedTokens);
-      })
-      .catch((err) => {
-        console.warn("marknote: staged context stats failed", err);
-        if (!cancelled) setStagedTokenLabel("?");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [stagedPaths, activePath, source]);
-
-  useEffect(() => {
-    setStagedPaths([]);
-  }, [rootPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1121,8 +1066,6 @@ export function App() {
         undoFileOp: handleUndoFileOp,
         checkForUpdates: handleManualUpdateCheck,
         copyMarkdown,
-        copyContextBundle,
-        clearContextBundle,
         exportToPdf,
         toggleFullscreen,
         openRecent: (path: string) => void loadFile(path),
@@ -1132,7 +1075,6 @@ export function App() {
         readingMode,
         editorOnly,
         toggleEditorOnly,
-        contextCount: stagedPaths.length,
       }),
     [
       handleNewFile,
@@ -1144,8 +1086,6 @@ export function App() {
       saveNow,
       sidebarOpen,
       copyMarkdown,
-      copyContextBundle,
-      clearContextBundle,
       showHelp,
       showWelcome,
       showAbout,
@@ -1157,7 +1097,6 @@ export function App() {
       handleToggleSidebar,
       loadFile,
       recentFiles,
-      stagedPaths.length,
     ],
   );
 
@@ -1323,11 +1262,6 @@ export function App() {
               onMove={handleMove}
               onContextMenu={handleContextMenu}
               onRequestRename={setEditingPath}
-              stagedPaths={stagedPaths}
-              stagedTokenLabel={stagedTokenLabel}
-              onToggleStage={toggleStagedPath}
-              onCopyContext={() => void copyContextBundle()}
-              onClearContext={clearContextBundle}
               editingPath={editingPath}
               onSubmitRename={handleSubmitRename}
               onCancelEdit={() => setEditingPath(null)}

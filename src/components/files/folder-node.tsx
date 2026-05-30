@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, ChevronRight, FilePlus2, FileText, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
 import { Icon } from "@/components/primitives";
 import type { FileEntry } from "@/lib";
 import { FileTree, type NewEntry } from "./file-tree";
@@ -23,8 +23,6 @@ type FolderNodeProps = {
   onRequestRename?: (path: string) => void;
   /** double-click on a folder row → navigate into it (becomes the tree root). takes priority over rename. */
   onNavigate?: (path: string) => void;
-  stagedPaths?: readonly string[];
-  onToggleStage?: (path: string) => void;
   editingPath?: string | null;
   onSubmitRename?: (src: string, newName: string) => void;
   onCancelEdit?: () => void;
@@ -43,8 +41,6 @@ export function FolderNode({
   onContextMenu,
   onRequestRename,
   onNavigate,
-  stagedPaths = [],
-  onToggleStage,
   editingPath,
   onSubmitRename,
   onCancelEdit,
@@ -139,8 +135,6 @@ export function FolderNode({
           onContextMenu={onContextMenu}
           onRequestRename={onRequestRename}
           onNavigate={onNavigate}
-          stagedPaths={stagedPaths}
-          onToggleStage={onToggleStage}
           editingPath={editingPath}
           onSubmitRename={onSubmitRename}
           onCancelEdit={onCancelEdit}
@@ -161,8 +155,6 @@ type FileNodeProps = {
   onSelect: (path: string) => void;
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
   onRequestRename?: (path: string) => void;
-  staged?: boolean;
-  onToggleStage?: (path: string) => void;
   depth: number;
 };
 
@@ -172,8 +164,6 @@ export function FileNode({
   onSelect,
   onContextMenu,
   onRequestRename,
-  staged = false,
-  onToggleStage,
   depth,
 }: FileNodeProps) {
   const onDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
@@ -188,12 +178,7 @@ export function FileNode({
     }
   };
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if ((e.metaKey || e.ctrlKey) && onToggleStage) {
-      e.preventDefault();
-      onToggleStage(entry.path);
-      return;
-    }
+  const handleClick = () => {
     onSelect(entry.path);
   };
 
@@ -202,7 +187,7 @@ export function FileNode({
       <button
         type="button"
         draggable
-        className={`mdv-tree__row mdv-tree__row--file${active ? " is-active" : ""}${staged ? " is-staged" : ""}`}
+        className={`mdv-tree__row mdv-tree__row--file${active ? " is-active" : ""}`}
         style={{ paddingLeft: `${8 + depth * 12 + 4}px` }}
         onClick={handleClick}
         onDoubleClick={(e) => {
@@ -220,21 +205,6 @@ export function FileNode({
         </span>
         <span className="mdv-tree__name">{entry.name}</span>
       </button>
-      {onToggleStage ? (
-        <button
-          type="button"
-          className={`mdv-tree__stage${staged ? " is-staged" : ""}`}
-          data-tooltip={staged ? "remove from context" : "stage for context"}
-          aria-label={staged ? `remove ${entry.name} from context` : `stage ${entry.name} for context`}
-          aria-pressed={staged}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStage(entry.path);
-          }}
-        >
-          <Icon icon={staged ? Check : FilePlus2} size={11} strokeWidth={1.8} />
-        </button>
-      ) : null}
     </li>
   );
 }

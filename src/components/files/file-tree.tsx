@@ -14,8 +14,6 @@ type FileTreeProps = {
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
   onRequestRename?: (path: string) => void;
   onNavigate?: (path: string) => void;
-  stagedPaths?: readonly string[];
-  onToggleStage?: (path: string) => void;
   editingPath?: string | null;
   onSubmitRename?: (src: string, newName: string) => void;
   onCancelEdit?: () => void;
@@ -34,8 +32,6 @@ export function FileTree({
   onContextMenu,
   onRequestRename,
   onNavigate,
-  stagedPaths = [],
-  onToggleStage,
   editingPath,
   onSubmitRename,
   onCancelEdit,
@@ -119,8 +115,6 @@ export function FileTree({
               onContextMenu={onContextMenu}
               onRequestRename={onRequestRename}
               onNavigate={onNavigate}
-              stagedPaths={stagedPaths}
-              onToggleStage={onToggleStage}
               editingPath={editingPath}
               onSubmitRename={onSubmitRename}
               onCancelEdit={onCancelEdit}
@@ -140,8 +134,6 @@ export function FileTree({
             onSelect={onSelect}
             onContextMenu={onContextMenu}
             onRequestRename={onRequestRename}
-            staged={stagedPaths.includes(entry.path)}
-            onToggleStage={onToggleStage}
             depth={depth}
           />
         );

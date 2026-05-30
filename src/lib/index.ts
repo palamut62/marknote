@@ -14,12 +14,6 @@ export { STORAGE_KEYS, type StorageKey } from "./storage";
 export { CHANGELOG_URL, getWhatsNewToastMessage } from "./release-notes";
 export { buildCommands, type Command, type CommandActions } from "./commands";
 export { estimateTokens, formatTokens } from "./bundle";
-export {
-  formatContextBundle,
-  getContextBundleStats,
-  readContextFiles,
-  type ContextFile,
-} from "./context-bundle";
 export { startWindowDrag } from "./window-drag";
 export { exportPreviewToPdf, PdfExportError } from "./pdf-export";
 export { IS_MAC, IS_WINDOWS, IS_LINUX, displayKey, shortcutLabel } from "./platform";

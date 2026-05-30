@@ -314,48 +314,6 @@
   color: var(--accent);
 }
 
-.mdv-tree__row.is-staged {
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
-}
-
-.mdv-tree__row.is-staged .mdv-tree__icon {
-  color: var(--accent);
-}
-
-.mdv-tree__stage {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  opacity: 0;
-  cursor: pointer;
-  transition:
-    opacity var(--dur-fast) var(--easing),
-    color var(--dur-fast) var(--easing),
-    background var(--dur-fast) var(--easing);
-}
-
-.mdv-tree__item:hover .mdv-tree__stage,
-.mdv-tree__stage:focus-visible,
-.mdv-tree__stage.is-staged {
-  opacity: 1;
-}
-
-.mdv-tree__stage:hover,
-.mdv-tree__stage.is-staged {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
 /* drag + drop */
 .mdv-tree__row[draggable="true"]:active {
   opacity: 0.5;
@@ -515,59 +473,3 @@
   opacity: 0.9;
 }
 
-/* context tray */
-.mdv-context-tray {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 42px;
-  padding: 7px 8px 7px 12px;
-  border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 62%, transparent);
-}
-
-.mdv-context-tray.has-files {
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-}
-
-.mdv-context-tray__meta {
-  display: grid;
-  grid-template-columns: auto auto;
-  align-items: baseline;
-  gap: 1px 8px;
-  min-width: 0;
-}
-
-.mdv-context-tray__label {
-  grid-column: 1 / -1;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.mdv-context-tray__count,
-.mdv-context-tray__tokens {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg);
-  white-space: nowrap;
-}
-
-.mdv-context-tray__tokens {
-  color: var(--muted);
-}
-
-.mdv-context-tray__actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.mdv-context-tray__actions .mdv-btn:disabled {
-  opacity: 0.42;
-  cursor: default;
-}
