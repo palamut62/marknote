@@ -38,9 +38,11 @@ works with claude, chatgpt, gemini, your local agent — anywhere that reads pla
 - **session restore** — last open file + folder come back on launch
 - **save as** — ⌘⇧s opens save-as dialog (also auto-fallback for untitled buffers)
 - **markdown extras** — `==highlight==` (mark), `~~strike~~`, `[ ] / [x]` task lists with theme-aware checkboxes
+- **.env editing** — open and edit `.env` / `.env.local` / `*.env` config files right from the sidebar (normally hidden dotfiles)
+- **secret masking** — `KEY=VALUE` secrets and provider tokens (sk-…, ghp_…, AIza…) render as dots by default · eye-toggle to reveal
 - **share to ai** — ⌘⇧c copies clean markdown to clipboard
 - **export to pdf** — ⌘p
-- **external file watch** — auto-reloads when the file changes outside the app · conflict toast on dirty buffer
+- **external file watch** — auto-reloads the open file when it changes outside the app · the sidebar tree refreshes when files are added/removed in the open folder · conflict toast on dirty buffer
 - **cross-platform auto-update** — minisign-signed releases on macOS / Windows / Linux
 - **window transparency slider** — continuous opacity, macOS vibrancy
 - **platform-aware shortcuts** — ⌘ on mac, Ctrl on Windows/Linux, surfaced correctly everywhere
@@ -144,8 +146,11 @@ every folder exports its public api via `index.ts`. path alias `@/*` resolves to
 
 per-release detail lives on the [GitHub releases](https://github.com/palamut62/marknote/releases). high-level:
 
+**latest**:
+- **.env editing** — open and edit `.env` / `.env.local` / `*.env` files straight from the sidebar, with secret values masked by default
+- **sidebar auto-refresh** — files added or removed in the open folder from outside the app now show up without reopening it
+
 **v1.5**:
-- **context tray** — multi-file bundling, ⌘-click to stage, token estimates, copy as one prompt blob
 - **what's new toast** — first launch after update now points users straight to the changelog
 - **pdf export polish** — cleaner document margins and no browser-added date/time/path headers
 
@@ -156,7 +161,7 @@ contributions welcome — see [feedback](#feedback) below to suggest priorities.
 
 ## privacy
 
-local-first. nothing ever leaves your machine. no telemetry, no analytics, no accounts, no cloud sync. your `.md` files stay on disk. clipboard transfers happen only when you press ⌘⇧C — and then they're yours, going wherever you paste them.
+local-first. nothing ever leaves your machine. no telemetry, no analytics, no accounts, no cloud sync. your `.md` and `.env` files stay on disk — secret values are even masked in the editor by default. clipboard transfers happen only when you press ⌘⇧C — and then they're yours, going wherever you paste them.
 
 ## feedback
 
