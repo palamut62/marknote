@@ -45,6 +45,18 @@ export function isMarkdownPath(path: string): boolean {
   return MARKDOWN_EXT.test(path);
 }
 
+// .env / .env.local / .env.production / name.env — config files worth editing
+// in place. They're dotfiles, so they need explicit allow-listing throughout.
+export function isEnvPath(path: string): boolean {
+  const name = basename(path);
+  return name === ".env" || name.startsWith(".env.") || /\.env$/i.test(name);
+}
+
+/** Any plain-text file marknote can open and edit (markdown family + .env). */
+export function isEditablePath(path: string): boolean {
+  return isMarkdownPath(path) || isEnvPath(path);
+}
+
 export function basename(path: string): string {
   const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   return i >= 0 ? path.slice(i + 1) : path;
@@ -64,7 +76,7 @@ export function joinPath(parent: string, child: string): string {
 export async function listFolder(path: string): Promise<FileEntry[]> {
   const entries = await readDir(path);
   return entries
-    .filter((e) => !e.name.startsWith("."))
+    .filter((e) => !e.name.startsWith(".") || isEnvPath(e.name))
     .map((e) => ({
       name: e.name,
       path: joinPath(path, e.name),
@@ -110,13 +122,13 @@ export async function walkMarkdownFiles(root: string): Promise<FlatFileEntry[]> 
     }
     for (const e of entries) {
       if (out.length >= WALK_MAX_FILES) return;
-      if (e.name.startsWith(".")) continue;
+      if (e.name.startsWith(".") && !isEnvPath(e.name)) continue;
       if (e.isDirectory && WALK_SKIP.has(e.name)) continue;
       const childPath = joinPath(dir, e.name);
       const childRel = relPrefix ? `${relPrefix}${sep}${e.name}` : e.name;
       if (e.isDirectory) {
         await visit(childPath, childRel);
-      } else if (isMarkdownPath(e.name)) {
+      } else if (isEditablePath(e.name)) {
         out.push({ name: e.name, path: childPath, rel: childRel });
       }
     }
@@ -145,8 +157,8 @@ export type FileValidation =
 
 /** Quick guard before reading a file as markdown. Catches PDFs, images, oversized files. */
 export async function validateMarkdownFile(path: string): Promise<FileValidation> {
-  if (!isMarkdownPath(path)) {
-    return { ok: false, reason: `${basename(path)} isn't a supported file. marknote handles .md / .markdown / .mdx / .txt` };
+  if (!isEditablePath(path)) {
+    return { ok: false, reason: `${basename(path)} isn't a supported file. marknote handles .md / .markdown / .mdx / .txt / .env` };
   }
   try {
     const info = await stat(path);
@@ -218,7 +230,8 @@ export async function createFolder(parent: string, name: string): Promise<string
 export async function createMarkdownFile(parent: string, name: string): Promise<string> {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("empty name");
-  const withExt = /\.(md|markdown|mdx)$/i.test(trimmed) ? trimmed : `${trimmed}.md`;
+  const withExt =
+    /\.(md|markdown|mdx)$/i.test(trimmed) || isEnvPath(trimmed) ? trimmed : `${trimmed}.md`;
   const target = joinPath(parent, withExt);
   if (await pathExists(target)) throw new Error(FS_CONFLICT);
   await writeTextFile(target, "");

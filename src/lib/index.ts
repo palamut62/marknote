@@ -48,6 +48,8 @@ export {
   writeMarkdown,
   pathExists,
   isMarkdownPath,
+  isEnvPath,
+  isEditablePath,
   basename,
   dirname,
   joinPath,

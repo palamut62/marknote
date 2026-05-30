@@ -23,7 +23,7 @@ export function DropOverlay({ active }: DropOverlayProps) {
           <FileText size={16} strokeWidth={1.5} />
           <span>drop your markdown here</span>
         </div>
-        <span className="mdv-drop__hint">.md · .markdown · .mdx</span>
+        <span className="mdv-drop__hint">.md · .markdown · .mdx · .txt · .env</span>
       </div>
     </div>
   );

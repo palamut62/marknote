@@ -48,7 +48,7 @@ import {
   estimateTokens,
   exportPreviewToPdf,
   getWhatsNewToastMessage,
-  isMarkdownPath,
+  isEditablePath,
   PdfExportError,
   pickFolder,
   pickMarkdownFile,
@@ -916,7 +916,7 @@ export function App() {
       e.preventDefault();
       reset();
       const files = Array.from(e.dataTransfer?.files ?? []);
-      const firstMd = files.find((f) => isMarkdownPath(f.name));
+      const firstMd = files.find((f) => isEditablePath(f.name));
       if (firstMd) {
         // WKWebView doesn't expose file path; load content as an untitled buffer.
         try {
@@ -928,7 +928,7 @@ export function App() {
         }
       } else if (files.length > 0) {
         setLoadError({
-          message: "only .md / .markdown / .mdx / .txt files can be opened in marknote",
+          message: "only .md / .markdown / .mdx / .txt / .env files can be opened in marknote",
         });
       }
     };
