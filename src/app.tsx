@@ -7,9 +7,12 @@ import {
   MarkdownToolbar,
   Preview,
   ReadingFind,
+  RichEditor,
+  RichToolbar,
   Splitter,
   type EditorHandle,
 } from "@/components/editor";
+import type { Editor as TiptapEditor } from "@tiptap/react";
 import { ContextMenu, Sidebar, type ContextMenuItem } from "@/components/files";
 import {
   AboutOverlay,
@@ -201,13 +204,25 @@ export function App() {
   const [translating, setTranslating] = useState(false);
   const [correcting, setCorrecting] = useState(false);
   const [promptifying, setPromptifying] = useState(false);
-  const editorRef = useRef<EditorHandle | null>(null);
+  // the markdown pane (right) gets its own editor instance; markdown toolbar
+  // actions, templates, undo/redo and outline nav target this one (#editor-split)
+  const mdEditorRef = useRef<EditorHandle | null>(null);
+  // the left pane is a tiptap WYSIWYG ("Word-like") editor — formatting renders
+  // visually (color/highlight/bold), never as raw markdown/HTML tags. Surfaced
+  // here so RichToolbar (rendered alongside) can drive its commands.
+  const [richEditor, setRichEditor] = useState<TiptapEditor | null>(null);
   const [selectionRange, setSelectionRange] = useState<TextRange>({ from: 0, to: 0 });
   const [aiSelectionScope, setAiSelectionScope] = useState(false);
   const [editorContextMenu, setEditorContextMenu] = useState<{
     x: number;
     y: number;
     range: TextRange;
+    hasSelection: boolean;
+  } | null>(null);
+  // right-click menu for the WYSIWYG (text) pane
+  const [richContextMenu, setRichContextMenu] = useState<{
+    x: number;
+    y: number;
     hasSelection: boolean;
   } | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -426,14 +441,18 @@ export function App() {
   }, []);
 
   const handleMarkdownAction = useCallback((action: MarkdownAction) => {
-    const selection = editorRef.current?.getSelection() ?? { from: source.length, to: source.length };
+    const selection = mdEditorRef.current?.getSelection() ?? { from: source.length, to: source.length };
     const edit = applyMarkdownAction(source, selection, action, {
       textColor: editorTextColor,
       highlightColor: editorHighlightColor,
     });
     setTranslatedSource(null);
-    editorRef.current?.replaceRange(edit.range, edit.insert, edit.selection);
+    mdEditorRef.current?.replaceRange(edit.range, edit.insert, edit.selection);
   }, [editorHighlightColor, editorTextColor, source]);
+
+  const handleRichEditorReady = useCallback((editor: TiptapEditor | null) => {
+    if (editor) setRichEditor(editor);
+  }, []);
 
   const appStyle = useMemo(() => ({
     "--mdv-user-text-color": editorTextColor,
@@ -452,20 +471,20 @@ export function App() {
   ]);
 
   const handleInsertTemplate = useCallback((kind: "note" | "readme" | "prompt") => {
-    const selection = editorRef.current?.getSelection() ?? { from: source.length, to: source.length };
+    const selection = mdEditorRef.current?.getSelection() ?? { from: source.length, to: source.length };
     const edit = insertTemplate(source, selection, kind);
     setTranslatedSource(null);
-    editorRef.current?.replaceRange(edit.range, edit.insert, edit.selection);
+    mdEditorRef.current?.replaceRange(edit.range, edit.insert, edit.selection);
   }, [source]);
 
   const handleUndoEdit = useCallback(() => {
     setTranslatedSource(null);
-    editorRef.current?.undo();
+    mdEditorRef.current?.undo();
   }, []);
 
   const handleRedoEdit = useCallback(() => {
     setTranslatedSource(null);
-    editorRef.current?.redo();
+    mdEditorRef.current?.redo();
   }, []);
 
   const refreshSnapshots = useCallback(() => setSnapshots(listSnapshots()), []);
@@ -480,7 +499,7 @@ export function App() {
     setSource(snapshot.source);
     setSnapshotsOpen(false);
     refreshSnapshots();
-    window.requestAnimationFrame(() => editorRef.current?.goTo(0));
+    window.requestAnimationFrame(() => mdEditorRef.current?.goTo(0));
   }, [source, activePath, setSource, refreshSnapshots]);
 
   const handleDeleteSnapshot = useCallback((id: string) => {
@@ -665,7 +684,7 @@ export function App() {
     const nextSource = `${source.slice(0, range.from)}${next}${source.slice(range.to)}`;
     setSource(nextSource);
     setAiReview(null);
-    window.requestAnimationFrame(() => editorRef.current?.goTo(range.from + next.length));
+    window.requestAnimationFrame(() => mdEditorRef.current?.goTo(range.from + next.length));
   }, [aiReview, source, activePath, refreshSnapshots, setSource]);
 
   const previewSource = translatedSource ?? debouncedPreview;
@@ -682,7 +701,7 @@ export function App() {
   const handleEditorContextMenu = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const selection = editorRef.current?.getSelection() ?? { from: 0, to: 0 };
+    const selection = mdEditorRef.current?.getSelection() ?? { from: 0, to: 0 };
     const hasSelection = selection.from !== selection.to;
     setSelectionRange(selection);
     setAiSelectionScope(hasSelection);
@@ -694,9 +713,103 @@ export function App() {
     });
   }, [source.length]);
 
+  const closeRichContextMenu = useCallback(() => setRichContextMenu(null), []);
+
+  const handleRichContextMenu = useCallback((e: ReactMouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sel = richEditor?.state.selection;
+    const hasSelection = sel ? sel.from !== sel.to : false;
+    setRichContextMenu({ x: e.clientX, y: e.clientY, hasSelection });
+  }, [richEditor]);
+
+  // context menu for the WYSIWYG pane. AI runs on the whole document; clipboard
+  // and selection use the tiptap editor directly so the text side works on its own.
+  const richContextItems = useMemo<ContextMenuItem[]>(() => {
+    if (!richContextMenu) return [];
+    const { hasSelection } = richContextMenu;
+    const wholeFile: TextRange = { from: 0, to: source.length };
+    const targetLanguage = LANGUAGES.find((lang) => lang.code === translateTargetLang)?.label ?? translateTargetLang;
+    const selectedText = () => {
+      if (!richEditor) return "";
+      const { from, to } = richEditor.state.selection;
+      return richEditor.state.doc.textBetween(from, to, "\n");
+    };
+    return [
+      {
+        label: "ai proofread",
+        icon: CheckCheck,
+        hint: "file",
+        disabled: !translateReady || correcting || !source.trim(),
+        onSelect: () => void handleCorrectMarkdown(wholeFile),
+      },
+      {
+        label: "turn into prompt",
+        icon: WandSparkles,
+        hint: "file",
+        disabled: !translateReady || promptifying || !source.trim(),
+        onSelect: () => void handlePromptifyMarkdown(wholeFile),
+      },
+      {
+        label: "translate",
+        icon: Languages,
+        hint: `${targetLanguage} · file`,
+        disabled: !translateReady || translating || !source.trim(),
+        onSelect: () => void handleTranslateMarkdown(wholeFile),
+      },
+      "divider",
+      {
+        label: "copy",
+        icon: Copy,
+        disabled: !hasSelection,
+        onSelect: () => {
+          const text = selectedText();
+          if (text) void navigator.clipboard.writeText(text);
+        },
+      },
+      {
+        label: "cut",
+        icon: Scissors,
+        disabled: !hasSelection,
+        onSelect: () => {
+          const text = selectedText();
+          if (text) void navigator.clipboard.writeText(text);
+          richEditor?.chain().focus().deleteSelection().run();
+        },
+      },
+      {
+        label: "paste",
+        icon: Clipboard,
+        onSelect: () => {
+          void navigator.clipboard.readText().then((text) => {
+            if (text) richEditor?.chain().focus().insertContent(text).run();
+          });
+        },
+      },
+      "divider",
+      {
+        label: "select all",
+        icon: TextCursorInput,
+        onSelect: () => richEditor?.chain().focus().selectAll().run(),
+      },
+    ];
+  }, [
+    richContextMenu,
+    richEditor,
+    source,
+    translateReady,
+    correcting,
+    promptifying,
+    translating,
+    translateTargetLang,
+    handleCorrectMarkdown,
+    handlePromptifyMarkdown,
+    handleTranslateMarkdown,
+  ]);
+
   const replaceEditorRange = useCallback((range: TextRange, text: string) => {
     setTranslatedSource(null);
-    editorRef.current?.replaceRange(range, text, {
+    mdEditorRef.current?.replaceRange(range, text, {
       from: range.from + text.length,
       to: range.from + text.length,
     });
@@ -768,7 +881,7 @@ export function App() {
           const full = { from: 0, to: source.length };
           setSelectionRange(full);
           setAiSelectionScope(source.length > 0);
-          editorRef.current?.selectRange(full);
+          mdEditorRef.current?.selectRange(full);
         },
       },
       {
@@ -1106,7 +1219,43 @@ export function App() {
   );
 
   const displayName = activePath ? basename(activePath) : undefined;
+  // left "text" pane — Word-like WYSIWYG editor. formatting (bold, color,
+  // highlight, headings, lists) renders visually; never raw markdown/HTML tags.
+  // edits serialize back to the shared markdown `source` so the markdown pane +
+  // preview stay in sync.
   const editorWorkspace = (
+    <div className="mdv-editor-workspace">
+      <RichToolbar
+        editor={richEditor}
+        textColor={editorTextColor}
+        highlightColor={editorHighlightColor}
+        secretsPresent={sourceHasSecrets(source)}
+        secretsHidden={secretsHidden}
+        onToggleSecrets={toggleSecrets}
+      />
+      <div className="mdv-editor-workspace__body">
+        <div className="mdv-editor-workspace__main">
+          <RichEditor
+            value={source}
+            onChange={setSource}
+            secretsHidden={secretsHidden}
+            onEditorReady={handleRichEditorReady}
+            onContextMenu={handleRichContextMenu}
+          />
+          {editorAiBusyLabel ? (
+            <div className="mdv-editor-ai-busy" role="status" aria-live="polite">
+              <span className="mdv-editor-ai-busy__spinner" aria-hidden />
+              <span>{editorAiBusyLabel}</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
+  // right pane ("markdown page") — markdown toolbar + syntax-highlighted source
+  // editor + outline. all markdown tooling lives here (#editor-split)
+  const markdownWorkspace = (
     <div className="mdv-editor-workspace">
       <MarkdownToolbar
         onAction={handleMarkdownAction}
@@ -1126,7 +1275,7 @@ export function App() {
       <div className="mdv-editor-workspace__body">
         <div className="mdv-editor-workspace__main">
           <Editor
-            ref={editorRef}
+            ref={mdEditorRef}
             value={source}
             onChange={setSource}
             onSelectionChange={handleEditorSelectionChange}
@@ -1135,18 +1284,12 @@ export function App() {
             onVimMode={setVimMode}
             secretsHidden={secretsHidden}
           />
-          {editorAiBusyLabel ? (
-            <div className="mdv-editor-ai-busy" role="status" aria-live="polite">
-              <span className="mdv-editor-ai-busy__spinner" aria-hidden />
-              <span>{editorAiBusyLabel}</span>
-            </div>
-          ) : null}
         </div>
         {inspectorOpen ? (
           <MarkdownInspector
             headings={headings}
             issues={markdownIssues}
-            onGoTo={(pos) => editorRef.current?.goTo(pos)}
+            onGoTo={(pos) => mdEditorRef.current?.goTo(pos)}
           />
         ) : null}
       </div>
@@ -1280,33 +1423,13 @@ export function App() {
                 {editorWorkspace}
               </div>
             ) : previewOnly ? (
-              <div className="mdv-shell__editor-solo mdv-shell__preview-solo">
-                <Preview
-                  source={previewSource}
-                  onTranslate={handleTranslate}
-                  onRevertTranslation={handleRevertTranslation}
-                  translating={translating}
-                  translated={translatedSource != null}
-                  translateDisabled={!translateReady}
-                  translateTooltip={translateTooltip}
-                  secretsHidden={secretsHidden}
-                  onToggleSecrets={toggleSecrets}
-                />
+              <div className="mdv-shell__editor-solo">
+                {markdownWorkspace}
               </div>
             ) : (
               <Splitter
                 left={editorWorkspace}
-                right={
-                  <Preview
-                    source={previewSource}
-                    onTranslate={handleTranslate}
-                    onRevertTranslation={handleRevertTranslation}
-                    translating={translating}
-                    translated={translatedSource != null}
-                    translateDisabled={!translateReady}
-                    translateTooltip={translateTooltip}
-                  />
-                }
+                right={markdownWorkspace}
               />
             )}
           </>
@@ -1503,6 +1626,14 @@ export function App() {
         y={editorContextMenu?.y ?? 0}
         items={editorContextItems}
         onClose={closeEditorContextMenu}
+      />
+
+      <ContextMenu
+        open={richContextMenu != null}
+        x={richContextMenu?.x ?? 0}
+        y={richContextMenu?.y ?? 0}
+        items={richContextItems}
+        onClose={closeRichContextMenu}
       />
 
       <StatusBar

@@ -46,6 +46,12 @@ type EditorProps = {
   onContextMenu?: (e: ReactMouseEvent) => void;
   /** when true, detected API keys / tokens are rendered as dots */
   secretsHidden?: boolean;
+  /**
+   * plain-text mode (#editor-split): drops markdown language parsing + syntax
+   * highlighting so the buffer reads as clean prose. color/highlight spans and
+   * secret masking still apply since those extensions are markdown-agnostic.
+   */
+  plain?: boolean;
 };
 
 export type EditorHandle = {
@@ -111,10 +117,12 @@ function buildTheme() {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { value, onChange, vimOn = false, onVimMode, onSelectionChange, onContextMenu, secretsHidden = true },
+  { value, onChange, vimOn = false, onVimMode, onSelectionChange, onContextMenu, secretsHidden = true, plain = false },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
+  // captured once at mount — `plain` is fixed per editor instance
+  const plainRef = useRef(plain);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -191,8 +199,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         drawSelection(),
         highlightActiveLine(),
         bracketMatching(),
-        syntaxHighlighting(mdHighlight, { fallback: true }),
-        markdown(),
+        // markdown syntax highlighting + parsing only in the markdown pane;
+        // the plain pane shows unstyled prose (#editor-split)
+        ...(plainRef.current ? [] : [syntaxHighlighting(mdHighlight, { fallback: true }), markdown()]),
         EditorView.lineWrapping,
         colorMarkExtension(),
         secretMaskExtension(),

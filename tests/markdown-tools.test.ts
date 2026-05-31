@@ -239,3 +239,47 @@ test("table inserts a markdown table scaffold", () => {
   const edit = applyMarkdownAction("", at("", 0, 0), "table");
   expect(edit.next).toBe("| Column | Value |\n| --- | --- |\n| Item | Detail |");
 });
+
+test("hr inserts a horizontal rule", () => {
+  const edit = applyMarkdownAction("", at("", 0, 0), "hr");
+  expect(edit.next).toBe("\n---\n");
+});
+
+// ---------------------------------------------------------------------------
+// new line-level toggles: h3, lists
+// ---------------------------------------------------------------------------
+
+test("h3 adds then removes the heading marker on repeat", () => {
+  const on = applyMarkdownAction("Title", at("Title", 0, 0), "h3");
+  expect(on.next).toBe("### Title");
+  const off = applyMarkdownAction(on.next, at(on.next, 0, 0), "h3");
+  expect(off.next).toBe("Title");
+});
+
+test("strikethrough wraps and toggles off", () => {
+  const on = applyMarkdownAction("gone", at("gone", 0, 4), "strikethrough");
+  expect(on.next).toBe("~~gone~~");
+  const off = applyMarkdownAction(on.next, on.selection, "strikethrough");
+  expect(off.next).toBe("gone");
+});
+
+test("code-block wraps the selection in a fenced block", () => {
+  const edit = applyMarkdownAction("x = 1", at("x = 1", 0, 5), "code-block");
+  expect(edit.next).toBe("```\nx = 1\n```");
+});
+
+test("bullet-list toggles across multiple selected lines", () => {
+  const src = "one\ntwo";
+  const on = applyMarkdownAction(src, at(src, 0, src.length), "bullet-list");
+  expect(on.next).toBe("- one\n- two");
+  const off = applyMarkdownAction(on.next, at(on.next, 0, on.next.length), "bullet-list");
+  expect(off.next).toBe("one\ntwo");
+});
+
+test("ordered-list numbers selected lines and toggles off", () => {
+  const src = "alpha\nbeta\ngamma";
+  const on = applyMarkdownAction(src, at(src, 0, src.length), "ordered-list");
+  expect(on.next).toBe("1. alpha\n2. beta\n3. gamma");
+  const off = applyMarkdownAction(on.next, at(on.next, 0, on.next.length), "ordered-list");
+  expect(off.next).toBe("alpha\nbeta\ngamma");
+});

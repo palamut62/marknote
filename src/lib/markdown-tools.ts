@@ -3,8 +3,10 @@ export type TextRange = { from: number; to: number };
 export type MarkdownAction =
   | "h1"
   | "h2"
+  | "h3"
   | "bold"
   | "italic"
+  | "strikethrough"
   | "quote"
   | "inline-code"
   | "code-block"
@@ -13,6 +15,9 @@ export type MarkdownAction =
   | "link"
   | "image"
   | "checklist"
+  | "bullet-list"
+  | "ordered-list"
+  | "hr"
   | "table";
 
 export type MarkdownEdit = {
@@ -239,11 +244,11 @@ function toggleLink(source: string, range: TextRange, image: boolean): MarkdownE
   return replaceRange(source, range, `[${label}](https://example.com)`);
 }
 
-/** Toggle a line-level prefix (heading / quote / checklist) across the selected lines. */
+/** Toggle a line-level prefix (heading / quote / checklist / bullet) across the selected lines. */
 function toggleLinePrefix(
   source: string,
   range: TextRange,
-  action: "h1" | "h2" | "quote" | "checklist",
+  action: "h1" | "h2" | "h3" | "quote" | "checklist" | "bullet-list",
 ): MarkdownEdit {
   const bounds = lineBounds(source, range);
   const lines = source.slice(bounds.from, bounds.to);
@@ -253,6 +258,7 @@ function toggleLinePrefix(
   const config = {
     h1: { add: (l: string) => `# ${l}`, has: /^# /, strip: /^#{1,6}\s+/, placeholder: "Heading" },
     h2: { add: (l: string) => `## ${l}`, has: /^## /, strip: /^#{1,6}\s+/, placeholder: "Heading" },
+    h3: { add: (l: string) => `### ${l}`, has: /^### /, strip: /^#{1,6}\s+/, placeholder: "Heading" },
     quote: { add: (l: string) => `> ${l}`, has: /^>\s?/, strip: /^>\s?/, placeholder: "Quote" },
     checklist: {
       add: (l: string) => `- [ ] ${l}`,
@@ -260,12 +266,35 @@ function toggleLinePrefix(
       strip: /^[-*]\s+\[[ xX]\]\s+/,
       placeholder: "Task",
     },
+    "bullet-list": {
+      // strip an existing checklist/bullet marker first so toggling is clean
+      add: (l: string) => `- ${l}`,
+      has: /^[-*]\s+(?!\[[ xX]\]\s)/,
+      strip: /^[-*]\s+(?:\[[ xX]\]\s+)?/,
+      placeholder: "Item",
+    },
   }[action];
 
   const allApplied = nonEmpty.length > 0 && nonEmpty.every((l) => config.has.test(l));
   const insert = allApplied
     ? mapLines(lines, (l) => l.replace(config.strip, ""))
     : mapLines(lines || config.placeholder, (l) => config.add(l.replace(config.strip, "")));
+  return replaceRange(source, bounds, insert);
+}
+
+/** Toggle an ordered (numbered) list across the selected lines, renumbering from 1. */
+function toggleOrderedList(source: string, range: TextRange): MarkdownEdit {
+  const bounds = lineBounds(source, range);
+  const lines = source.slice(bounds.from, bounds.to);
+  const has = /^\d+\.\s+/;
+  const nonEmpty = lines.split("\n").filter((l) => l.trim().length > 0);
+  const allApplied = nonEmpty.length > 0 && nonEmpty.every((l) => has.test(l));
+
+  if (allApplied) {
+    return replaceRange(source, bounds, mapLines(lines, (l) => l.replace(has, "")));
+  }
+  let n = 0;
+  const insert = mapLines(lines || "Item", (l) => `${++n}. ${l.replace(has, "")}`);
   return replaceRange(source, bounds, insert);
 }
 
@@ -278,13 +307,19 @@ export function applyMarkdownAction(
   switch (action) {
     case "h1":
     case "h2":
+    case "h3":
     case "quote":
     case "checklist":
+    case "bullet-list":
       return toggleLinePrefix(source, range, action);
+    case "ordered-list":
+      return toggleOrderedList(source, range);
     case "bold":
       return toggleInline(source, range, "**", "text");
     case "italic":
       return toggleInline(source, range, "_", "text");
+    case "strikethrough":
+      return toggleInline(source, range, "~~", "text");
     case "inline-code":
       return toggleInline(source, range, "`", "text");
     case "code-block": {
@@ -299,6 +334,8 @@ export function applyMarkdownAction(
       return toggleLink(source, range, false);
     case "image":
       return toggleLink(source, range, true);
+    case "hr":
+      return replaceRange(source, range, "\n---\n");
     case "table":
       return replaceRange(source, range, "| Column | Value |\n| --- | --- |\n| Item | Detail |");
     default:

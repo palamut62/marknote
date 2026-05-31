@@ -121,6 +121,9 @@ md.use(mark);
 // literal text) so this stays an XSS-safe whitelist.
 const COLOR_VALUE = /^(#[0-9a-fA-F]{6}|var\(--mdv-user-text-color\))$/;
 const HIGHLIGHT_VALUE = /^(#[0-9a-fA-F]{6}|var\(--mdv-user-highlight-color\))$/;
+const FONT_FAMILY_VALUE =
+  /^(Inter, system-ui, sans-serif|JetBrains Mono, ui-monospace, monospace|Georgia, serif)$/;
+const FONT_SIZE_VALUE = /^(12|14|16|18|24|32)px$/;
 
 function isSafeStyle(style: string): boolean {
   const decls = style.split(";").map((d) => d.trim()).filter(Boolean);
@@ -132,6 +135,8 @@ function isSafeStyle(style: string): boolean {
     const value = decl.slice(idx + 1).trim();
     if (key === "color") return COLOR_VALUE.test(value);
     if (key === "background" || key === "background-color") return HIGHLIGHT_VALUE.test(value);
+    if (key === "font-family") return FONT_FAMILY_VALUE.test(value);
+    if (key === "font-size") return FONT_SIZE_VALUE.test(value);
     return false;
   });
 }

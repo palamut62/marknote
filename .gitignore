@@ -39,3 +39,4 @@ notes/
 *.sln
 *.sw?
 marketing.md
+.playwright-mcp/
