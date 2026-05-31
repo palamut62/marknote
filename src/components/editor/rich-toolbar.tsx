@@ -36,8 +36,20 @@ type RichToolbarProps = {
 const FONT_FAMILIES = [
   { label: "font", value: "" },
   { label: "Inter", value: "Inter, system-ui, sans-serif" },
-  { label: "Mono", value: "JetBrains Mono, ui-monospace, monospace" },
-  { label: "Serif", value: "Georgia, serif" },
+  { label: "System", value: "system-ui, -apple-system, sans-serif" },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { label: "Helvetica", value: "Helvetica, Arial, sans-serif" },
+  { label: "Segoe UI", value: "'Segoe UI', Tahoma, sans-serif" },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+  { label: "Tahoma", value: "Tahoma, Verdana, sans-serif" },
+  { label: "Trebuchet", value: "'Trebuchet MS', sans-serif" },
+  { label: "Calibri", value: "Calibri, Candara, sans-serif" },
+  { label: "Times", value: "'Times New Roman', Times, serif" },
+  { label: "Georgia", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Garamond", value: "Garamond, 'Times New Roman', serif" },
+  { label: "Courier", value: "'Courier New', Courier, monospace" },
+  { label: "Mono", value: "'JetBrains Mono', ui-monospace, monospace" },
+  { label: "Comic Sans", value: "'Comic Sans MS', 'Comic Sans', cursive" },
 ];
 
 const FONT_SIZES = [
