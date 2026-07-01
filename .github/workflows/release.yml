@@ -40,7 +40,7 @@ jobs:
       HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
     steps:
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # need full history + tags so we can derive a per-release commit list
           # via `git log <prev_tag>..<this_tag>` for the changelog.
