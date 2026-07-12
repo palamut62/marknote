@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
+  basename,
   joinPath,
   pathExists,
   pickSaveMarkdown,
@@ -24,6 +26,7 @@ function contentsMatch(a: string, b: string): boolean {
 }
 
 export type LoadError = { message: string; path?: string };
+export type RecoveryDraft = { source: string; path: string | null };
 
 type UseFileSessionArgs = {
   onLoadError?: (err: LoadError) => void;
@@ -48,12 +51,15 @@ type UseFileSessionResult = {
   acceptExternalChange: (fresh: string) => void;
   loadFile: (path: string) => Promise<void>;
   loadDemo: () => void;
-  saveNow: (path: string, content: string) => Promise<void>;
+  saveNow: (path: string, content: string) => Promise<boolean>;
   /** Picks save location + writes. Returns the chosen path (or null if cancelled). */
   saveAs: () => Promise<string | null>;
   /** Discard buffer, leave activePath null. Accepts optional initial text for OS-drop. */
   startNewBuffer: (initial?: string) => void;
   dirty: boolean;
+  recoveryDraft: RecoveryDraft | null;
+  restoreRecovery: () => void;
+  dismissRecovery: () => void;
 };
 
 // First-ever launch shows the demo. Once the user has dismissed the welcome
@@ -89,6 +95,7 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
   );
   const [externalReloadToast, setExternalReloadToast] = useState(false);
   const [externalConflict, setExternalConflict] = useState<string | null>(null);
+  const [recoveryDraft, setRecoveryDraft] = useState<RecoveryDraft | null>(null);
 
   const dismissExternalReload = useCallback(() => setExternalReloadToast(false), []);
 
@@ -96,6 +103,18 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
     setSource(fresh);
     setSavedContent(fresh);
     setSaveStatus("idle");
+  }, []);
+
+  const restoreRecovery = useCallback(() => {
+    if (!recoveryDraft) return;
+    setSource(recoveryDraft.source);
+    setActivePath(recoveryDraft.path);
+    setRecoveryDraft(null);
+  }, [recoveryDraft, setActivePath]);
+
+  const dismissRecovery = useCallback(() => {
+    setRecoveryDraft(null);
+    void invoke("clear_recovery");
   }, []);
 
   const loadFile = useCallback(
@@ -139,7 +158,7 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
     });
   }, [setActivePath]);
 
-  const saveNow = useCallback(async (path: string, content: string) => {
+  const saveNow = useCallback(async (path: string, content: string): Promise<boolean> => {
     setSaveStatus("saving");
     try {
       await writeMarkdown(path, content);
@@ -148,18 +167,22 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
       window.setTimeout(() => {
         setSaveStatus((s) => (s === "saved" ? "idle" : s));
       }, SAVED_FLASH_MS);
+      return true;
     } catch (err) {
       console.error("marknote: writeMarkdown failed", err);
       setSaveStatus("dirty");
+      onLoadError?.({ message: `could not save ${basename(path)} - ${String(err)}`, path });
+      return false;
     }
-  }, []);
+  }, [onLoadError]);
 
   const saveAs = useCallback(async (): Promise<string | null> => {
     const defaultPath = activePath
       ?? (rootPath ? joinPath(rootPath, "untitled.md") : "untitled.md");
     const target = await pickSaveMarkdown(defaultPath);
     if (!target) return null;
-    await saveNow(target, source);
+    const saved = await saveNow(target, source);
+    if (!saved) return null;
     setActivePath(target);
     return target;
   }, [activePath, rootPath, source, saveNow, setActivePath]);
@@ -218,6 +241,18 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void invoke<RecoveryDraft | null>("load_recovery")
+      .then((draft) => {
+        if (!cancelled && draft?.source) setRecoveryDraft(draft);
+      })
+      .catch((err) => console.warn("marknote: recovery load failed", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // mark dirty as soon as content diverges from disk
   useEffect(() => {
     if (!activePath) {
@@ -231,7 +266,22 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
     }
   }, [source, savedContent, activePath]);
 
-  const dirty = activePath != null && !contentsMatch(source, savedContent);
+  const dirty = !contentsMatch(source, savedContent);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (dirty) {
+        void invoke("save_recovery", { draft: { source, path: activePath } }).catch((err) => {
+          console.warn("marknote: recovery save failed", err);
+        });
+      } else {
+        void invoke("clear_recovery").catch((err) => {
+          console.warn("marknote: recovery clear failed", err);
+        });
+      }
+    }, 750);
+    return () => window.clearTimeout(timer);
+  }, [dirty, source, activePath]);
 
   return {
     source,
@@ -255,5 +305,8 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
     saveAs,
     startNewBuffer,
     dirty,
+    recoveryDraft,
+    restoreRecovery,
+    dismissRecovery,
   };
 }

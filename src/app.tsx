@@ -18,11 +18,13 @@ import {
   AboutOverlay,
   AiReviewOverlay,
   CommandPalette,
+  DeveloperToolsOverlay,
   DropOverlay,
   HelpOverlay,
   SettingsOverlay,
   SnapshotsOverlay,
   Toast,
+  UnsavedChangesOverlay,
   WelcomeOverlay,
 } from "@/components/overlays";
 import { TooltipRoot } from "@/components/primitives";
@@ -36,6 +38,7 @@ import {
   useOverlays,
   usePersistedState,
   useShortcuts,
+  useSecureSecret,
   useSyncScroll,
   useUpdateFlow,
 } from "@/hooks";
@@ -49,6 +52,7 @@ import {
   CHANGELOG_URL,
   dirname,
   estimateTokens,
+  exportPreviewToHtml,
   exportPreviewToPdf,
   getWhatsNewToastMessage,
   isEditablePath,
@@ -72,6 +76,7 @@ import {
   type MarkdownAction,
   type Snapshot,
   type TextRange,
+  type ExportProfile,
 } from "@/lib";
 import { UPDATES_ENABLED } from "@/lib/updater";
 import { translateMarkdown, LANGUAGES } from "@/lib";
@@ -82,6 +87,8 @@ import { Icon } from "@/components/primitives";
 import "./app.css";
 
 export function App() {
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+  const [navigationSaving, setNavigationSaving] = useState(false);
   const {
     loadError,
     setLoadError,
@@ -108,12 +115,16 @@ export function App() {
     dismissExternalReload,
     externalConflict,
     setExternalConflict,
+    acceptExternalChange,
     loadFile,
     loadDemo,
     saveNow,
     saveAs: saveAsCore,
     startNewBuffer,
     dirty,
+    recoveryDraft,
+    restoreRecovery,
+    dismissRecovery,
   } = useFileSession({ onLoadError: setLoadError });
 
   const [sidebarOpen, setSidebarOpen] = usePersistedState<boolean>(
@@ -176,10 +187,17 @@ export function App() {
   const [vimOn, setVimOn] = usePersistedState<boolean>(STORAGE_KEYS.vimMode, false);
   const [vimMode, setVimMode] = useState<VimMode | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [openrouterKey, setOpenrouterKey] = usePersistedState<string>(
-    STORAGE_KEYS.openrouterKey,
-    "",
+  const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
+  const [exportProfile, setExportProfile] = usePersistedState<ExportProfile>(
+    STORAGE_KEYS.exportProfile,
+    "standard",
   );
+  const {
+    value: openrouterKey,
+    setValue: setOpenrouterKey,
+    ready: secureStorageReady,
+    error: secureStorageError,
+  } = useSecureSecret(STORAGE_KEYS.openrouterKey);
   const [openrouterModel, setOpenrouterModel] = usePersistedState<string>(
     STORAGE_KEYS.openrouterModel,
     "",
@@ -315,7 +333,7 @@ export function App() {
 
   const exportToPdf = useCallback(async () => {
     try {
-      await exportPreviewToPdf({ source, activePath });
+      await exportPreviewToPdf({ source, activePath, profile: exportProfile });
     } catch (err) {
       const message = err instanceof PdfExportError
         ? err.message
@@ -323,7 +341,16 @@ export function App() {
       console.error("marknote: pdf export failed", err);
       setLoadError({ message });
     }
-  }, [source, activePath]);
+  }, [source, activePath, exportProfile]);
+
+  const exportToHtml = useCallback(async () => {
+    try {
+      const target = await exportPreviewToHtml({ source, activePath, profile: exportProfile });
+      if (target) showSaveAsToast(`exported ${basename(target)}`);
+    } catch (err) {
+      setLoadError({ message: err instanceof Error ? err.message : "couldn't export html" });
+    }
+  }, [source, activePath, exportProfile, showSaveAsToast, setLoadError]);
 
 
   const toggleFullscreen = useCallback(async () => {
@@ -515,10 +542,38 @@ export function App() {
   // wraps useFileSession's saveAs to bump the sidebar tree + show landing toast.
   const saveAs = useCallback(async () => {
     const target = await saveAsCore();
-    if (!target) return;
+    if (!target) return null;
     bumpTree();
     showSaveAsToast(`saved to ${basename(target)}`);
+    return target;
   }, [saveAsCore, bumpTree, showSaveAsToast]);
+
+  const continueNavigation = useCallback((action: () => void) => {
+    if (dirty) {
+      setPendingNavigation(() => action);
+      return;
+    }
+    action();
+  }, [dirty]);
+
+  const discardAndContinue = useCallback(() => {
+    const action = pendingNavigation;
+    setPendingNavigation(null);
+    action?.();
+  }, [pendingNavigation]);
+
+  const saveAndContinue = useCallback(async () => {
+    if (!pendingNavigation || navigationSaving) return;
+    setNavigationSaving(true);
+    const saved = activePath
+      ? await saveNow(activePath, source)
+      : (await saveAs()) != null;
+    setNavigationSaving(false);
+    if (!saved) return;
+    const action = pendingNavigation;
+    setPendingNavigation(null);
+    action();
+  }, [pendingNavigation, navigationSaving, activePath, saveNow, source, saveAs]);
 
   const handleOpenFolder = useCallback(async () => {
     const folder = await pickFolder();
@@ -531,20 +586,24 @@ export function App() {
   const handleOpenFile = useCallback(async () => {
     const file = await pickMarkdownFile();
     if (file) {
-      void loadFile(file);
+      continueNavigation(() => void loadFile(file));
     }
-  }, [loadFile]);
+  }, [loadFile, continueNavigation]);
 
   const handleNewFile = useCallback(() => {
-    startNewBuffer();
-  }, [startNewBuffer]);
+    continueNavigation(() => startNewBuffer());
+  }, [startNewBuffer, continueNavigation]);
 
   // revert when source / active file changes so we never show stale translation
   useEffect(() => {
     setTranslatedSource(null);
   }, [activePath]);
 
-  const translateReady = openrouterKey.length > 0 && openrouterModel.length > 0;
+  useEffect(() => {
+    if (secureStorageError) setLoadError({ message: secureStorageError });
+  }, [secureStorageError, setLoadError]);
+
+  const translateReady = secureStorageReady && openrouterKey.length > 0 && openrouterModel.length > 0;
   const aiTooltip = !openrouterKey
     ? "add an openrouter api key in settings"
     : !openrouterModel
@@ -975,7 +1034,7 @@ export function App() {
     void listen<string>("marknote:open-file", (event) => {
       const path = event.payload;
       if (typeof path === "string" && path.length > 0) {
-        void loadFile(path);
+        continueNavigation(() => void loadFile(path));
       }
     }).then((un) => {
       unlisten = un;
@@ -983,7 +1042,7 @@ export function App() {
     return () => {
       unlisten?.();
     };
-  }, [loadFile]);
+  }, [loadFile, continueNavigation]);
 
   // OS drop. dragDropEnabled is OFF so Tauri doesn't intercept. counter guards
   // nested dragenter/leave firing multiple times.
@@ -1186,7 +1245,7 @@ export function App() {
         copyMarkdown,
         exportToPdf,
         toggleFullscreen,
-        openRecent: (path: string) => void loadFile(path),
+        openRecent: (path: string) => continueNavigation(() => void loadFile(path)),
         recentFiles,
         hasActivePath: activePath != null,
         sidebarOpen,
@@ -1214,6 +1273,7 @@ export function App() {
       toggleFullscreen,
       handleToggleSidebar,
       loadFile,
+      continueNavigation,
       recentFiles,
     ],
   );
@@ -1402,7 +1462,7 @@ export function App() {
               onOpenFolder={handleOpenFolder}
               onNewFileAtRoot={rootPath ? () => setNewEntry({ parent: rootPath, kind: "file" }) : undefined}
               onNewFolderAtRoot={rootPath ? () => setNewEntry({ parent: rootPath, kind: "folder" }) : undefined}
-              onSelectFile={(path) => void loadFile(path)}
+              onSelectFile={(path) => continueNavigation(() => void loadFile(path))}
               onNavigateToFolder={(folder) => {
                 setRootPath(folder);
                 setSidebarOpen(true);
@@ -1527,7 +1587,7 @@ export function App() {
           label: "reload (discard mine)",
           onClick: () => {
             if (externalConflict != null) {
-              setSource(externalConflict);
+              acceptExternalChange(externalConflict);
             }
             setExternalConflict(null);
           },
@@ -1553,6 +1613,24 @@ export function App() {
         next={aiReview?.next ?? ""}
         onApply={applyAiReview}
         onClose={() => setAiReview(null)}
+      />
+
+      <Toast
+        open={recoveryDraft != null && loadError == null}
+        message="an unsaved draft was recovered from the previous session"
+        variant="info"
+        durationMs={null}
+        onDismiss={dismissRecovery}
+        action={{ label: "restore", onClick: restoreRecovery }}
+      />
+
+      <UnsavedChangesOverlay
+        open={pendingNavigation != null}
+        fileName={activePath ? basename(activePath) : "untitled.md"}
+        saving={navigationSaving}
+        onSave={() => void saveAndContinue()}
+        onDiscard={discardAndContinue}
+        onCancel={() => setPendingNavigation(null)}
       />
 
       <SnapshotsOverlay
@@ -1595,6 +1673,20 @@ export function App() {
         onCheckForUpdates={UPDATES_ENABLED ? handleManualUpdateCheck : undefined}
         dockMode={dockMode}
         onDockModeChange={setDockMode}
+      />
+
+      <DeveloperToolsOverlay
+        open={developerToolsOpen}
+        rootPath={rootPath}
+        activePath={activePath}
+        source={source}
+        onChange={setSource}
+        onOpenFile={(path) => continueNavigation(() => void loadFile(path))}
+        exportProfile={exportProfile}
+        onExportProfileChange={setExportProfile}
+        onExportHtml={() => void exportToHtml()}
+        onExportPdf={() => void exportToPdf()}
+        onClose={() => setDeveloperToolsOpen(false)}
       />
 
       <AboutOverlay
@@ -1643,6 +1735,7 @@ export function App() {
         docTokens={docTokens}
         onShowHelp={() => setHelpOpen(true)}
         onShowSettings={() => setSettingsOpen(true)}
+        onShowDeveloperTools={() => setDeveloperToolsOpen(true)}
         vimMode={readingMode ? null : vimMode}
       />
     </div>

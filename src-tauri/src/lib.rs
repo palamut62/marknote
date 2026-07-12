@@ -14,10 +14,111 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager, WindowEvent,
 };
+use serde::{Deserialize, Serialize};
+
+const KEYRING_SERVICE: &str = "marknote";
+const OPENROUTER_ACCOUNT: &str = "openrouter-api-key";
+
+#[tauri::command]
+fn get_openrouter_key() -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, OPENROUTER_ACCOUNT)
+        .map_err(|err| err.to_string())?;
+    match entry.get_password() {
+        Ok(value) => Ok(Some(value)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+#[tauri::command]
+fn set_openrouter_key(value: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, OPENROUTER_ACCOUNT)
+        .map_err(|err| err.to_string())?;
+    if value.is_empty() {
+        match entry.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(err) => Err(err.to_string()),
+        }
+    } else {
+        entry.set_password(&value).map_err(|err| err.to_string())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecoveryDraft {
+    source: String,
+    path: Option<String>,
+}
+
+fn recovery_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .app_local_data_dir()
+        .map(|dir| dir.join("recovery.json"))
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn save_recovery(app: tauri::AppHandle, draft: RecoveryDraft) -> Result<(), String> {
+    let path = recovery_path(&app)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+    }
+    let temp = path.with_extension("json.tmp");
+    let bytes = serde_json::to_vec(&draft).map_err(|err| err.to_string())?;
+    std::fs::write(&temp, bytes).map_err(|err| err.to_string())?;
+    std::fs::rename(&temp, &path).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn load_recovery(app: tauri::AppHandle) -> Result<Option<RecoveryDraft>, String> {
+    let path = recovery_path(&app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bytes = std::fs::read(path).map_err(|err| err.to_string())?;
+    serde_json::from_slice(&bytes).map(Some).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn clear_recovery(app: tauri::AppHandle) -> Result<(), String> {
+    let path = recovery_path(&app)?;
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+#[tauri::command]
+fn git_diff(root: String) -> Result<String, String> {
+    let root = std::fs::canonicalize(root).map_err(|err| err.to_string())?;
+    if !root.is_dir() {
+        return Err("workspace is not a directory".into());
+    }
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["diff", "--no-ext-diff", "--", "."])
+        .output()
+        .map_err(|err| err.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            get_openrouter_key,
+            set_openrouter_key,
+            save_recovery,
+            load_recovery,
+            clear_recovery,
+            git_diff
+        ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())

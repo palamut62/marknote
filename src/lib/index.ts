@@ -10,12 +10,20 @@ export {
   type Theme,
   type ThemeMode,
 } from "./theme";
-export { STORAGE_KEYS, type StorageKey } from "./storage";
+export { STORAGE_KEYS, migrateLegacyStorage, type StorageKey } from "./storage";
 export { CHANGELOG_URL, getWhatsNewToastMessage } from "./release-notes";
+export {
+  parseFrontmatter,
+  extractDocumentLinks,
+  applyTextTransform,
+  upsertFrontmatterField,
+  type FrontmatterResult,
+  type DocumentLink,
+} from "./developer-tools";
 export { buildCommands, type Command, type CommandActions } from "./commands";
 export { estimateTokens, formatTokens } from "./bundle";
 export { startWindowDrag } from "./window-drag";
-export { exportPreviewToPdf, PdfExportError } from "./pdf-export";
+export { exportPreviewToPdf, exportPreviewToHtml, PdfExportError, type ExportProfile } from "./pdf-export";
 export { IS_MAC, IS_WINDOWS, IS_LINUX, displayKey, shortcutLabel } from "./platform";
 export { listOpenRouterModels, openrouterChat, type OpenRouterModel } from "./openrouter";
 export { getAutostartEnabled, setAutostartEnabled } from "./autostart";
@@ -27,6 +35,7 @@ export {
   extractHeadings,
   insertTemplate,
   lintMarkdown,
+  fixMarkdownLint,
   type HeadingItem,
   type MarkdownAction,
   type MarkdownIssue,
@@ -42,6 +51,7 @@ export {
   pickFolder,
   pickMarkdownFile,
   pickSaveMarkdown,
+  pickSaveHtml,
   listFolder,
   walkMarkdownFiles,
   readMarkdown,

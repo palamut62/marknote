@@ -1,6 +1,6 @@
 import { tempDir } from "@tauri-apps/api/path";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { basename, writeMarkdown } from "./files";
+import { basename, pickSaveHtml, writeMarkdown } from "./files";
 import { renderMarkdown } from "./markdown";
 import { renderMermaidInHtml } from "./mermaid";
 
@@ -136,13 +136,22 @@ export class PdfExportError extends Error {
   }
 }
 
+export type ExportProfile = "compact" | "standard" | "spacious";
+
 type ExportOpts = {
   source: string;
   activePath: string | null;
+  profile?: ExportProfile;
+};
+
+const PROFILE_PADDING: Record<ExportProfile, string> = {
+  compact: "10mm 14mm 20mm",
+  standard: "16mm 20mm 34mm",
+  spacious: "24mm 28mm 42mm",
 };
 
 /** Export markdown as self-contained print HTML and open in browser to save as PDF. */
-export async function exportPreviewToPdf({ source, activePath }: ExportOpts): Promise<void> {
+export async function exportPreviewToPdf({ source, activePath, profile = "standard" }: ExportOpts): Promise<void> {
   if (!source.trim()) {
     throw new PdfExportError("empty", "nothing to export. open or write some markdown first.");
   }
@@ -162,7 +171,7 @@ export async function exportPreviewToPdf({ source, activePath }: ExportOpts): Pr
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)}</title>
-  <style>${PRINT_STYLES}</style>
+  <style>${PRINT_STYLES.split("16mm 20mm 34mm").join(PROFILE_PADDING[profile])}</style>
 </head>
 <body>
   <main class="doc">
@@ -188,4 +197,18 @@ export async function exportPreviewToPdf({ source, activePath }: ExportOpts): Pr
   } catch {
     throw new PdfExportError("io", "couldn't export to pdf — try again, or check disk space");
   }
+}
+
+/** Save a standalone HTML document without opening the browser print dialog. */
+export async function exportPreviewToHtml({ source, activePath, profile = "standard" }: ExportOpts): Promise<string | null> {
+  if (!source.trim()) throw new PdfExportError("empty", "nothing to export. open or write some markdown first.");
+  const renderedHtml = await renderMarkdown(source, "latte");
+  const body = await renderMermaidInHtml(renderedHtml, "default");
+  const title = activePath ? basename(activePath) : "marknote export";
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>${PRINT_STYLES.split("16mm 20mm 34mm").join(PROFILE_PADDING[profile])}</style></head><body><main class="doc"><article class="mdv-prose">${body}</article></main></body></html>`;
+  const defaultName = title.replace(/\.(md|markdown|mdx|txt)$/i, ".html");
+  const target = await pickSaveHtml(defaultName.endsWith(".html") ? defaultName : `${defaultName}.html`);
+  if (!target) return null;
+  await writeMarkdown(target, html);
+  return target;
 }

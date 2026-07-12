@@ -5,5 +5,7 @@ export { SnapshotsOverlay } from "./snapshots-overlay";
 export { AboutOverlay } from "./about-overlay";
 export { AiReviewOverlay } from "./ai-review-overlay";
 export { WelcomeOverlay } from "./welcome-overlay";
+export { UnsavedChangesOverlay } from "./unsaved-changes-overlay";
+export { DeveloperToolsOverlay } from "./developer-tools-overlay";
 export { DropOverlay } from "./drop-overlay";
 export { Toast, type ToastAction } from "./toast";

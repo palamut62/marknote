@@ -40,3 +40,21 @@ notes/
 *.sw?
 marketing.md
 .playwright-mcp/
+
+# Local AI coding tools - never publish with the product
+AGENTS.md
+CLAUDE.md
+.claude/
+.codex/
+GEMINI.md
+.gemini/
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.aider*
+.opencode/
+opencode.json
+.github/copilot-instructions.md
+.specstory/
+.continue/

@@ -37,6 +37,15 @@ export async function pickSaveMarkdown(defaultPath?: string): Promise<string | n
   return result ?? null;
 }
 
+export async function pickSaveHtml(defaultPath?: string): Promise<string | null> {
+  const result = await save({
+    title: "export html",
+    defaultPath,
+    filters: [{ name: "HTML", extensions: ["html"] }],
+  });
+  return result ?? null;
+}
+
 // .txt is included so plain-text notes open and render as markdown (paragraphs,
 // lists, headings — anything markdown-it can detect — work the same way).
 const MARKDOWN_EXT = /\.(md|markdown|mdx|txt)$/i;

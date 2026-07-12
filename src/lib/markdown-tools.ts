@@ -399,3 +399,19 @@ export function lintMarkdown(source: string): MarkdownIssue[] {
 
   return issues;
 }
+
+/** Fix deterministic lint issues without inventing document content. */
+export function fixMarkdownLint(source: string): string {
+  let previousHeading = 0;
+  return source.split("\n").map((rawLine) => {
+    let line = rawLine.replace(/\s+$/, "");
+    const heading = /^(#{1,6})\s*(.*)$/.exec(line);
+    if (heading) {
+      let level = heading[1].length;
+      if (previousHeading && level > previousHeading + 1) level = previousHeading + 1;
+      previousHeading = level;
+      line = `${"#".repeat(level)} ${heading[2].trim()}`.trimEnd();
+    }
+    return line;
+  }).join("\n");
+}

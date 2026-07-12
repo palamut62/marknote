@@ -1,31 +1,45 @@
 export const STORAGE_KEYS = {
-  themeMode: "mdview.theme",
-  transparency: "mdview.transparency",
-  splitterRatio: "mdview.split.ratio",
-  sidebarOpen: "mdview.sidebar.open",
-  sidebarWidth: "mdview.sidebar.width",
-  lastFolder: "mdview.lastFolder",
-  lastFile: "mdview.lastFile",
-  welcomed: "mdview.welcomed",
-  lastSeenVersion: "mdview.lastSeenVersion",
-  recentFiles: "mdview.recent.files",
-  vimMode: "mdview.vim",
-  openrouterKey: "mdview.openrouter.key",
-  openrouterModel: "mdview.openrouter.model",
-  translateTargetLang: "mdview.translate.targetLang",
-  proofreadPrompt: "mdview.ai.prompt.proofread",
-  promptifyPrompt: "mdview.ai.prompt.promptify",
-  translatePrompt: "mdview.ai.prompt.translate",
-  snapshots: "mdview.snapshots",
-  autostart: "mdview.autostart",
-  secretsHidden: "mdview.secrets.hidden",
-  editorTextColor: "mdview.editor.textColor",
-  editorHighlightColor: "mdview.editor.highlightColor",
-  secretHiddenColor: "mdview.secrets.hiddenColor",
-  secretHiddenBg: "mdview.secrets.hiddenBg",
-  secretRevealedColor: "mdview.secrets.revealedColor",
-  secretRevealedBg: "mdview.secrets.revealedBg",
-  dockMode: "mdview.dock.mode",
+  themeMode: "marknote.theme",
+  transparency: "marknote.transparency",
+  splitterRatio: "marknote.split.ratio",
+  sidebarOpen: "marknote.sidebar.open",
+  sidebarWidth: "marknote.sidebar.width",
+  lastFolder: "marknote.lastFolder",
+  lastFile: "marknote.lastFile",
+  welcomed: "marknote.welcomed",
+  lastSeenVersion: "marknote.lastSeenVersion",
+  recentFiles: "marknote.recent.files",
+  vimMode: "marknote.vim",
+  openrouterKey: "marknote.openrouter.key",
+  openrouterModel: "marknote.openrouter.model",
+  translateTargetLang: "marknote.translate.targetLang",
+  proofreadPrompt: "marknote.ai.prompt.proofread",
+  promptifyPrompt: "marknote.ai.prompt.promptify",
+  translatePrompt: "marknote.ai.prompt.translate",
+  snapshots: "marknote.snapshots",
+  autostart: "marknote.autostart",
+  secretsHidden: "marknote.secrets.hidden",
+  editorTextColor: "marknote.editor.textColor",
+  editorHighlightColor: "marknote.editor.highlightColor",
+  secretHiddenColor: "marknote.secrets.hiddenColor",
+  secretHiddenBg: "marknote.secrets.hiddenBg",
+  secretRevealedColor: "marknote.secrets.revealedColor",
+  secretRevealedBg: "marknote.secrets.revealedBg",
+  dockMode: "marknote.dock.mode",
+  exportProfile: "marknote.export.profile",
+  customTransforms: "marknote.developer.transforms",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
+
+export function migrateLegacyStorage(): void {
+  for (const key of Object.values(STORAGE_KEYS)) {
+    if (!key.startsWith("marknote.")) continue;
+    const legacy = `mdview.${key.slice("marknote.".length)}`;
+    if (window.localStorage.getItem(key) == null) {
+      const value = window.localStorage.getItem(legacy);
+      if (value != null) window.localStorage.setItem(key, value);
+    }
+    window.localStorage.removeItem(legacy);
+  }
+}

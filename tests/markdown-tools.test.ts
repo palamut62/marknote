@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { applyMarkdownAction } from "../src/lib/markdown-tools";
+import { applyMarkdownAction, fixMarkdownLint } from "../src/lib/markdown-tools";
 
 const at = (source: string, from: number, to: number) => ({ from, to });
 
@@ -282,4 +282,8 @@ test("ordered-list numbers selected lines and toggles off", () => {
   expect(on.next).toBe("1. alpha\n2. beta\n3. gamma");
   const off = applyMarkdownAction(on.next, at(on.next, 0, on.next.length), "ordered-list");
   expect(off.next).toBe("alpha\nbeta\ngamma");
+});
+
+test("lint auto-fix removes trailing space and repairs heading jumps", () => {
+  expect(fixMarkdownLint("# One  \n#### Four   ")).toBe("# One\n## Four");
 });

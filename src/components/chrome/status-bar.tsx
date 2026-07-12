@@ -1,4 +1,4 @@
-import { CircleHelp, Settings } from "lucide-react";
+import { Braces, CircleHelp, Settings } from "lucide-react";
 import { Button, Icon } from "@/components/primitives";
 import { formatTokens, shortcutLabel, startWindowDrag } from "@/lib";
 
@@ -12,6 +12,7 @@ type StatusBarProps = {
   docTokens: number;
   onShowHelp: () => void;
   onShowSettings?: () => void;
+  onShowDeveloperTools?: () => void;
   /** when set, renders a vim-mode pill at the bottom-left (#23) */
   vimMode?: VimMode | null;
 };
@@ -36,6 +37,7 @@ export function StatusBar({
   docTokens,
   onShowHelp,
   onShowSettings,
+  onShowDeveloperTools,
   vimMode,
 }: StatusBarProps) {
   return (
@@ -61,6 +63,15 @@ export function StatusBar({
             aria-label="settings"
             onClick={onShowSettings}
             icon={<Icon icon={Settings} size={12} strokeWidth={1.5} />}
+          />
+        ) : null}
+        {onShowDeveloperTools ? (
+          <Button
+            className="mdv-statusbar__help"
+            data-tooltip="developer tools"
+            aria-label="developer tools"
+            onClick={onShowDeveloperTools}
+            icon={<Icon icon={Braces} size={12} strokeWidth={1.5} />}
           />
         ) : null}
         <Button

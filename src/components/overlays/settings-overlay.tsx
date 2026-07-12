@@ -351,7 +351,7 @@ export function SettingsOverlay({
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
                 <span>openrouter api key</span>
-                <span className="mdv-settings__hint">stored locally · never sent anywhere except openrouter.ai</span>
+                <span className="mdv-settings__hint">stored in your operating system credential vault · only sent to openrouter.ai</span>
               </div>
               <div className="mdv-settings__control mdv-settings__control--key">
                 <input
