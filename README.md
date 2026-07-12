@@ -1,189 +1,331 @@
 <p align="center">
-  <img src="./assets/readme-icon.png" width="180" alt="marknote app icon" />
+  <img src="./assets/readme-icon.png" width="160" alt="marknote application icon" />
 </p>
 
 <h1 align="center">marknote</h1>
 
-<p align="center"><em>a local markdown editor for the notes you share with ai.</em></p>
-
-<p align="center"><sub>marknote is a fork of <a href="https://github.com/mattenarle10/markamd">marka.md</a> by Matt Enarle, used under the MIT License.</sub></p>
+<p align="center">A local-first Markdown workspace for Windows, built for developers who prepare notes and context for AI tools.</p>
 
 <p align="center">
-  <a href="https://github.com/palamut62/marknote/releases/latest"><img src="https://img.shields.io/github/v/release/palamut62/marknote?style=flat-square&color=orange&label=release" alt="release" /></a>
-  <a href="https://github.com/palamut62/marknote/releases"><img src="https://img.shields.io/github/downloads/palamut62/marknote/total?style=flat-square&color=black&label=downloads" alt="downloads" /></a>
-  <a href="https://github.com/palamut62/marknote/stargazers"><img src="https://img.shields.io/github/stars/palamut62/marknote?style=flat-square&color=black&label=stars" alt="stars" /></a>
-  <img src="https://img.shields.io/badge/macOS-13%2B-black?style=flat-square" alt="macos" />
-  <img src="https://img.shields.io/badge/Windows-10%2B-black?style=flat-square" alt="windows" />
-  <img src="https://img.shields.io/badge/Linux-x86__64-black?style=flat-square" alt="linux" />
-  <img src="https://img.shields.io/badge/license-MIT-black?style=flat-square" alt="mit" />
-  <img src="https://img.shields.io/badge/notarized-Apple%20Developer-orange?style=flat-square" alt="notarized" />
+  <a href="https://github.com/palamut62/marknote/releases/latest">Download</a> ·
+  <a href="https://github.com/palamut62/marknote/releases">Releases</a> ·
+  <a href="https://github.com/palamut62/marknote/issues">Issues</a> ·
+  <a href="./SECURITY.md">Security</a>
 </p>
 
-a cross-platform (**macOS · Windows · Linux**) markdown editor specialized for **ai context management**. live editor on the left (codemirror 6), rendered preview on the right (markdown-it + shiki + mermaid). minimal chrome, 8 themes (catppuccin + matcha + kanagawa + rose pine + ayu), orange octopus mascot. ~10 mb bundle, ~240 mb resident — lean for a tauri app.
+<p align="center">
+  <a href="https://github.com/palamut62/marknote/releases/latest"><img src="https://img.shields.io/github/v/release/palamut62/marknote?style=flat-square&color=2563EB&label=release" alt="latest release" /></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?style=flat-square&logo=windows11&logoColor=white" alt="Windows 10 and 11" />
+  <img src="https://img.shields.io/badge/architecture-x64-334155?style=flat-square" alt="x64 architecture" />
+  <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
+  <img src="https://img.shields.io/badge/React-19-20232A?style=flat-square&logo=react&logoColor=61DAFB" alt="React 19" />
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-22C55E?style=flat-square" alt="MIT license" /></a>
+</p>
 
-> built around one loop: **collect notes → write → share with ai**. nothing leaves your machine until you copy.
+> marknote is a Windows desktop application. The official v1.6 release ships as an x64 NSIS installer and MSI package.
 
-works with claude, chatgpt, gemini, your local agent — anywhere that reads plain markdown.
+marknote combines a rich editor, raw Markdown editor, live preview, file workspace, developer tools, AI-assisted editing, and secure local recovery in one native Windows window. Documents remain on disk. Network access is only used when you explicitly run an OpenRouter-powered AI action.
 
-## features
+marknote is derived from [marka.md](https://github.com/mattenarle10/markamd) by Matt Enarle and remains available under the MIT License.
 
-- **live preview** — ~50 ms render, shiki code highlighting (36 langs, lazy-loaded), mermaid diagrams
-- **8 themes** — catppuccin family (latte / frappé / macchiato / mocha), matcha, kanagawa, rose pine, ayu + system auto-switch · hover-to-preview in menu
-- **reading mode** — ⌘. distraction-free preview with iA-style typography
-- **editor-only mode** — ⌘⇧. hide the preview when you want to focus on writing
-- **vim mode** — opt-in via theme menu · NORMAL/INSERT/VISUAL/REPLACE pill in the status bar
-- **find** — ⌘f works in BOTH editor (codemirror) and reading mode (text-node walker w/ live highlights)
-- **command palette** — ⌘k, fuzzy + grouped
-- **ide-style sidebar** — drag-to-move, right-click rename / new / delete, ⌘⌥Z undo
-- **session restore** — last open file + folder come back on launch
-- **save as** — ⌘⇧s opens save-as dialog (also auto-fallback for untitled buffers)
-- **markdown extras** — `==highlight==` (mark), `~~strike~~`, `[ ] / [x]` task lists with theme-aware checkboxes
-- **.env editing** — open and edit `.env` / `.env.local` / `*.env` config files right from the sidebar (normally hidden dotfiles)
-- **secret masking** — `KEY=VALUE` secrets and provider tokens (sk-…, ghp_…, AIza…) render as dots by default · eye-toggle to reveal
-- **share to ai** — ⌘⇧c copies clean markdown to clipboard
-- **export to pdf** — ⌘p
-- **external file watch** — auto-reloads the open file when it changes outside the app · the sidebar tree refreshes when files are added/removed in the open folder · conflict toast on dirty buffer
-- **cross-platform auto-update** — minisign-signed releases on macOS / Windows / Linux
-- **window transparency slider** — continuous opacity, macOS vibrancy
-- **platform-aware shortcuts** — ⌘ on mac, Ctrl on Windows/Linux, surfaced correctly everywhere
-- **no autosave** — ⌘s commits. trust your fingers, not background daemons.
+## Table of contents
 
-## install
+- [Features](#features)
+- [Windows installation](#windows-installation)
+- [Usage](#usage)
+- [Keyboard shortcuts](#keyboard-shortcuts)
+- [Configuration and privacy](#configuration-and-privacy)
+- [Tech stack](#tech-stack)
+- [Architecture](#architecture)
+- [Project structure](#project-structure)
+- [Development setup](#development-setup)
+- [Testing and packaging](#testing-and-packaging)
+- [Release process](#release-process)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Security](#security)
+- [FAQ](#faq)
+- [License and acknowledgments](#license-and-acknowledgments)
 
-[download the latest release →](https://github.com/palamut62/marknote/releases/latest)
+## Features
 
-### macOS (notarized + auto-updating, universal arch coverage)
+### Writing and preview
 
-- **apple silicon** (M1/M2/M3/M4): grab `marknote.dmg` → drag **marknote.app** into `/Applications` → open.
-- **intel mac**: grab `marknote_intel.dmg` → same install steps.
+- Rich-text and raw Markdown editing backed by Tiptap and CodeMirror 6.
+- Live Markdown preview with Shiki syntax highlighting and Mermaid diagrams.
+- Headings, lists, task lists, links, tables, code blocks, highlights, colors, and templates.
+- Reading mode, editor-only mode, optional Vim keybindings, find/replace, and command palette.
+- Markdown inspector with headings, lint issues, and deterministic lint auto-fix.
 
-### Windows (10+, x64)
+### Files and reliability
 
-grab `marknote_*-setup.exe` → run.
+- Workspace sidebar with recursive search, create, rename, move, delete, and undo support.
+- Support for `.md`, `.markdown`, `.mdx`, `.txt`, `.env`, `.env.*`, and `*.env` text files.
+- Unsaved-change protection before switching documents.
+- Atomic crash-recovery drafts stored in the Windows application data directory.
+- External file watching with safe reload and conflict handling.
+- Save As failures remain visible and never report a false success.
 
-Windows SmartScreen may show "Windows protected your PC". Click **More info** → **Run anyway**. marknote is free + MIT — we don't sign Windows builds (paid certs aren't worth it for a free OSS project). Full source is right here if you'd rather build it yourself.
+### Developer Tools
 
-### Linux (x86_64)
+- Search across the current workspace.
+- View the current Git working-tree diff.
+- Inspect and update frontmatter fields.
+- Validate local links and find broken references.
+- Find backlinks across workspace documents.
+- Save reusable literal find/replace transformations.
+- Export standalone HTML or print-ready PDF using compact, standard, or spacious profiles.
 
-three flavors, pick what fits your distro:
+### AI and secret handling
 
-- **AppImage** (works anywhere): `chmod +x marknote_*.AppImage` → run. self-contained, no install step needed.
-- **.deb** (Debian / Ubuntu / Mint / Pop!_OS): `sudo dpkg -i marknote_*_amd64.deb`
-- **.rpm** (Fedora / RHEL / Rocky / openSUSE): `sudo dnf install marknote-*.x86_64.rpm`
+- Proofread, translate, and turn selected text or a document into an AI-ready prompt.
+- Review AI output before applying it to the editor.
+- OpenRouter API keys are stored in Windows Credential Manager, not browser storage.
+- Common API keys and `.env` values are masked by default in editors and preview.
+- No telemetry, analytics, account requirement, or cloud document storage.
 
-no signing required on Linux — it's the freedom platform 🐧
+## Windows installation
 
-### from source
+### Recommended: NSIS installer
 
-requires bun (or npm), rust toolchain. on macOS: xcode command line tools. on Windows: MSVC build tools (Visual Studio installer → "Desktop development with C++"). on Linux: `libwebkit2gtk-4.1-dev libsoup-3.0-dev` + friends.
+1. Open the [latest release](https://github.com/palamut62/marknote/releases/latest).
+2. Download `marknote_1.6.0_x64-setup.exe` or the newest matching `marknote_*_x64-setup.exe`.
+3. Run the installer and follow the setup wizard.
+4. Launch **marknote** from the Start menu.
 
-```sh
-bun install
-bun run tauri dev      # native window with hmr
-bun run tauri build    # produces .dmg / .exe / .AppImage / .deb / .rpm under src-tauri/target/release/bundle/
+The current installer is not code-signed. Windows SmartScreen may display **Windows protected your PC**. If you downloaded the file from this repository, select **More info**, verify the publisher status and filename, then choose **Run anyway**.
+
+Direct v1.6 installer: [marknote_1.6.0_x64-setup.exe](https://github.com/palamut62/marknote/releases/download/v1.6.0/marknote_1.6.0_x64-setup.exe)
+
+### Alternative: MSI
+
+Local release builds also produce `marknote_1.6.0_x64_en-US.msi` under `src-tauri/target/release/bundle/msi/`. The GitHub v1.6 release currently publishes the NSIS `.exe` installer.
+
+## Usage
+
+1. Select **Open folder** to use a notes repository or project documentation folder as a workspace.
+2. Select a Markdown or environment file from the sidebar.
+3. Edit using the rich editor or raw Markdown pane.
+4. Open **Developer Tools** from the status bar for workspace search, Git diff, metadata, link, and transformation tools.
+5. Save with `Ctrl+S`, export from Developer Tools, or copy Markdown for another application.
+
+Files are edited in place. marknote does not upload documents to a server.
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+K` | Open command palette |
+| `Ctrl+O` | Open a file |
+| `Ctrl+Shift+O` | Open a folder |
+| `Ctrl+N` | Create an untitled document |
+| `Ctrl+S` | Save |
+| `Ctrl+Shift+S` | Save As |
+| `Ctrl+B` | Toggle workspace sidebar |
+| `Ctrl+F` | Find in the active editor or reading mode |
+| `Ctrl+Shift+C` | Copy Markdown |
+| `Ctrl+P` | Open PDF export flow |
+| `Ctrl+.` | Toggle reading mode |
+| `Ctrl+Shift+.` | Toggle editor-only mode |
+| `F11` | Toggle fullscreen |
+| `Ctrl+/` | Open help |
+| `Esc` | Close the active overlay |
+
+## Configuration and privacy
+
+Application settings are available from the status bar.
+
+### Optional OpenRouter configuration
+
+AI actions require:
+
+- an OpenRouter API key;
+- an OpenRouter model selected from the live model list;
+- optional custom instructions for proofreading, prompt conversion, and translation.
+
+The API key is stored through the operating-system credential vault. Existing v1.5 browser-storage keys are migrated once and removed from browser storage. AI requests send the selected text or document content to OpenRouter only when you explicitly start an AI action.
+
+### Local data
+
+- Preferences use `marknote.*` keys in the embedded WebView storage.
+- Recovery drafts use the Tauri application-local data directory.
+- Documents remain at their original filesystem paths.
+- File access is scoped to the Windows user home directory and paths selected through application dialogs.
+
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Desktop shell | Tauri 2, Rust, Windows WebView2 |
+| Frontend | React 19, TypeScript 5.9, Vite 7 |
+| Rich editor | Tiptap 3 |
+| Markdown editor | CodeMirror 6, optional Vim mode |
+| Rendering | markdown-it, Shiki, Mermaid |
+| Native integrations | Tauri filesystem, dialog, opener, process, autostart, and updater plugins |
+| Credential storage | Rust `keyring` with Windows Credential Manager |
+| Tests | Bun test |
+| Windows packaging | NSIS `.exe` and WiX `.msi` |
+
+## Architecture
+
+```text
+React application shell
+├── editor workspaces
+│   ├── Tiptap rich editor
+│   └── CodeMirror Markdown editor and inspector
+├── preview pipeline
+│   └── markdown-it → Shiki / Mermaid → rendered preview
+├── file session
+│   ├── Tauri filesystem operations
+│   ├── external-change watcher
+│   └── atomic recovery commands
+├── developer tools
+│   ├── workspace search and backlinks
+│   ├── frontmatter and link validation
+│   └── Git diff and reusable transforms
+└── native Rust shell
+    ├── Windows Credential Manager
+    ├── system tray and window lifecycle
+    └── NSIS / MSI packaging
 ```
 
-## keyboard
+The React layer owns editor state and user interaction. Native commands in `src-tauri/src/lib.rs` handle credential storage, atomic recovery, Git diff collection, tray behavior, and application lifecycle tasks.
 
-shortcuts shown with **macOS** modifiers below. on **Windows / Linux**, substitute `⌘` → `Ctrl`, `⌥` → `Alt`, `⇧` → `Shift`.
+## Project structure
 
-| key | does |
-|---|---|
-| ⌘K | command palette |
-| ⌘O | open a `.md` file |
-| ⌘⇧O | open a folder of notes |
-| ⌘N | new untitled buffer |
-| ⌘S | save (manual — no autosave) |
-| ⌘⇧S | save as (also auto-fallback for untitled buffers) |
-| ⌘B | toggle sidebar |
-| ⌘. | toggle reading mode (preview only) |
-| ⌘⇧. | toggle editor-only mode (preview hidden) |
-| ⌘F | find / replace in editor · or find in reading mode |
-| ⌘G | find next match |
-| ⌘⌥Z | undo last sidebar file op (move / rename / new / delete) |
-| ⌘⇧C | copy markdown to clipboard |
-| ⌘P | export to pdf |
-| ⌃⌘F | toggle fullscreen (macOS) · F11 on Windows/Linux |
-| ⌘/ | help overlay |
-| esc | close any popup |
-
-## stack
-
-| layer | choice |
-|---|---|
-| shell | tauri 2.11 (rust + webview), macOS universal (arm64 + x86_64) · Windows · Linux |
-| frontend | react 19 · vite 7 · typescript 5.9 · bun |
-| editor | codemirror 6 + `@codemirror/lang-markdown` + `@codemirror/search` · opt-in vim via `@replit/codemirror-vim` |
-| markdown | markdown-it + markdown-it-mark + markdown-it-task-lists + shiki (lazy themes + langs) + mermaid (lazy) |
-| icons | lucide-react |
-| styling | css variables, no framework |
-
-## project structure
-
-```
-src/
-├── app.tsx              # shell — composes hooks + renders layout
-├── components/
-│   ├── primitives/      # button, icon, popover, kbd, shortcut, tooltip
-│   ├── chrome/          # title-bar, breadcrumb, status-bar, logo
-│   ├── editor/          # editor, preview, splitter, reading-find
-│   ├── files/           # sidebar, file-tree, folder-node, editable-row, sidebar-search, context-menu
-│   └── overlays/        # palette, help, about, welcome, drop, toast
-├── hooks/                # use-file-session, use-file-ops, use-update-flow, use-context-menu,
-│                        # use-overlays, use-notifications, use-shortcuts, use-file-watcher,
-│                        # use-sync-scroll, use-debounced, use-persisted-state
-├── lib/                  # markdown, theme, platform, files, commands, pdf-export, updater,
-│                        # window-drag, storage, bundle, demo
-├── styles/               # tokens, globals, per-domain css (chrome/, editor/, files/, overlays/, shared/)
-└── assets/mascot/        # in-app sprites
-src-tauri/                # rust shell, tauri config, capabilities
-.github/workflows/        # release.yml (matrix build) + ci.yml + dependabot
+```text
+marknote/
+├── src/
+│   ├── components/
+│   │   ├── chrome/       # title bar, breadcrumb, status bar
+│   │   ├── editor/       # rich editor, Markdown editor, preview, inspector
+│   │   ├── files/        # workspace sidebar and file operations
+│   │   ├── overlays/     # settings, developer tools, dialogs, help
+│   │   └── primitives/   # shared UI building blocks
+│   ├── hooks/            # file session, recovery, shortcuts, overlays
+│   ├── lib/              # Markdown, files, exports, AI, developer utilities
+│   └── styles/           # tokens and component styles
+├── src-tauri/
+│   ├── capabilities/     # native permission scope
+│   ├── src/              # Rust application and commands
+│   └── tauri.conf.json   # Windows bundle configuration
+├── tests/                # Bun unit tests
+├── docs/                 # release and update documentation
+└── .github/workflows/    # CI and release automation
 ```
 
-every folder exports its public api via `index.ts`. path alias `@/*` resolves to `src/*`. state lives in cohesive custom hooks under `src/hooks/`; `app.tsx` is mostly composition + jsx.
+## Development setup
 
-## roadmap
+### Requirements
 
-per-release detail lives on the [GitHub releases](https://github.com/palamut62/marknote/releases). high-level:
+- Windows 10 or Windows 11 x64.
+- [Node.js 24 or newer](https://nodejs.org/).
+- [Bun](https://bun.sh/) for the configured test and Tauri pre-build scripts.
+- Stable [Rust toolchain](https://rustup.rs/) for `x86_64-pc-windows-msvc`.
+- Visual Studio 2022 Build Tools with **Desktop development with C++**.
+- Microsoft Edge WebView2 Runtime. It is normally included with supported Windows versions.
 
-**latest**:
-- **.env editing** — open and edit `.env` / `.env.local` / `*.env` files straight from the sidebar, with secret values masked by default
-- **sidebar auto-refresh** — files added or removed in the open folder from outside the app now show up without reopening it
+### Install and run
 
-**v1.5**:
-- **what's new toast** — first launch after update now points users straight to the changelog
-- **pdf export polish** — cleaner document margins and no browser-added date/time/path headers
+```powershell
+git clone https://github.com/palamut62/marknote.git
+Set-Location marknote
+npm install
+npm run tauri -- dev
+```
 
-**next**:
-- native/silent PDF generation, so export does not depend on the browser print dialog
+Frontend-only development:
 
-contributions welcome — see [feedback](#feedback) below to suggest priorities.
+```powershell
+npm run dev
+```
 
-## privacy
+## Testing and packaging
 
-local-first. nothing ever leaves your machine. no telemetry, no analytics, no accounts, no cloud sync. your `.md` and `.env` files stay on disk — secret values are even masked in the editor by default. clipboard transfers happen only when you press ⌘⇧C — and then they're yours, going wherever you paste them.
+Run the complete local verification set:
 
-## feedback
+```powershell
+npm test
+npx tsc --noEmit
+npm run build
+cargo check --manifest-path src-tauri/Cargo.toml
+npm run tauri -- build
+```
 
-ideas, bugs, or just want to say hi?
+Successful Windows packaging creates:
 
-- **structured form (GitHub)** — [feedback](https://github.com/palamut62/marknote/issues/new?template=feedback.yml) · [bug report](https://github.com/palamut62/marknote/issues/new?template=bug-report.yml)
-- **prefer email?** → [umutins62@hotmail.com](mailto:umutins62@hotmail.com?subject=marknote%20feedback)
-- **security issues** → [SECURITY.md](./SECURITY.md)
+```text
+src-tauri/target/release/marknote.exe
+src-tauri/target/release/bundle/nsis/marknote_<version>_x64-setup.exe
+src-tauri/target/release/bundle/msi/marknote_<version>_x64_en-US.msi
+```
 
-i read everything. PRs welcome.
+Release builds can take several minutes because Rust and the frontend syntax-highlighting/diagram modules are optimized for production.
 
-## support
+## Release process
 
-marknote is free + MIT, and intends to stay that way. if it saves you time wrangling AI context:
+1. Update the version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
+2. Add release notes under `docs/release-notes/`.
+3. Run all tests, type checking, frontend build, Rust check, and Tauri packaging.
+4. Smoke-test `src-tauri/target/release/marknote.exe`.
+5. Create a matching Git tag and GitHub Release.
+6. Upload the NSIS installer and verify its SHA-256 digest.
 
-- ⭐ [star the repo](https://github.com/palamut62/marknote) — biggest single signal
-- 🗣️ tell another dev / share it
+See [v1.6.0 release notes](./docs/release-notes/v1.6.0.md) for the current release.
 
-both appreciated, neither required. 🐙
+## Roadmap
 
-## license
+- Code-sign Windows installers to remove SmartScreen publisher warnings.
+- Add focused integration tests for native dialogs and credential-vault behavior.
+- Reduce the initial frontend bundle with additional lazy loading.
+- Add optional native PDF generation without the browser print flow.
 
-mit · umut çelik ([@palamut62](https://github.com/palamut62))
+Roadmap items are proposals, not committed release dates.
 
-forked from [marka.md](https://github.com/mattenarle10/markamd) by matt enarle ([@mattenarle10](https://github.com/mattenarle10)) · original copyright retained in [LICENSE](./LICENSE)
+## Contributing
+
+Issues and pull requests are welcome.
+
+1. Fork the repository and create a focused branch.
+2. Keep changes scoped and include tests for behavior changes.
+3. Run the commands in [Testing and packaging](#testing-and-packaging).
+4. Open a pull request describing the problem, solution, and verification evidence.
+
+Use the [feedback template](https://github.com/palamut62/marknote/issues/new?template=feedback.yml) for ideas and the [bug report template](https://github.com/palamut62/marknote/issues/new?template=bug-report.yml) for defects.
+
+## Security
+
+Do not report security vulnerabilities in a public issue. Follow the private reporting instructions in [SECURITY.md](./SECURITY.md).
+
+Never commit API keys, `.env` secrets, signing certificates, or credential exports.
+
+## FAQ
+
+### Does marknote run on macOS or Linux?
+
+The current maintained and published application is Windows x64. The repository contains Tauri code with some platform-aware behavior, but macOS and Linux installers are not part of the supported v1.6 release.
+
+### Why does Windows SmartScreen warn about the installer?
+
+The current installer is not digitally signed. Download releases only from this repository and verify the SHA-256 digest shown on the release page when available.
+
+### Does marknote upload my files?
+
+No. Files and recovery data stay local. Only explicit AI actions send selected content to the configured OpenRouter service.
+
+### Where is the Windows installer?
+
+Download it from [GitHub Releases](https://github.com/palamut62/marknote/releases/latest). Local builds place it under `src-tauri/target/release/bundle/nsis/`.
+
+### Can I edit `.env` files safely?
+
+marknote masks recognized secret values by default, but it is still a text editor. Review the destination carefully before copying, exporting, or sending content to an AI provider.
+
+## License and acknowledgments
+
+marknote is licensed under the [MIT License](./LICENSE).
+
+- marknote fork and Windows development: Umut Çelik ([@palamut62](https://github.com/palamut62)).
+- Original project: [marka.md](https://github.com/mattenarle10/markamd) by Matt Enarle.
+- UI icons: [Lucide](https://lucide.dev/).
+- Core open-source technologies: Tauri, React, Tiptap, CodeMirror, markdown-it, Shiki, and Mermaid.
