@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { listFolder, type FileEntry } from "@/lib";
+import { isEditablePath, listFolder, type FileEntry } from "@/lib";
+import { samePath } from "@/lib/paths";
 import errorIconUrl from "@/assets/brand/marka-app-icon.png";
 import { EditableRow } from "./editable-row";
 import { FileNode, FolderNode } from "./folder-node";
@@ -13,6 +14,8 @@ type FileTreeProps = {
   onMove?: (src: string, dstParent: string) => void;
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
   onRequestRename?: (path: string) => void;
+  /** Delete key / row trash button -> move to trash */
+  onRequestDelete?: (entry: FileEntry) => void;
   onNavigate?: (path: string) => void;
   editingPath?: string | null;
   onSubmitRename?: (src: string, newName: string) => void;
@@ -35,6 +38,7 @@ export function FileTree({
   onMove,
   onContextMenu,
   onRequestRename,
+  onRequestDelete,
   onNavigate,
   editingPath,
   onSubmitRename,
@@ -56,7 +60,7 @@ export function FileTree({
     setError(null);
     listFolder(rootPath)
       .then((items) => {
-        if (!cancelled) setEntries(foldersOnly ? items.filter((item) => item.isDir) : items);
+        if (!cancelled) setEntries(items.filter((item) => item.isDir || (!foldersOnly && isEditablePath(item.path))));
       })
       .catch((e) => {
         if (!cancelled) {
@@ -121,6 +125,7 @@ export function FileTree({
               onMove={onMove}
               onContextMenu={onContextMenu}
               onRequestRename={onRequestRename}
+              onRequestDelete={onRequestDelete}
               onNavigate={onNavigate}
               editingPath={editingPath}
               onSubmitRename={onSubmitRename}
@@ -140,10 +145,11 @@ export function FileTree({
           <FileNode
             key={entry.path}
             entry={entry}
-            active={activePath === entry.path}
+            active={samePath(activePath, entry.path)}
             onSelect={onSelect}
             onContextMenu={onContextMenu}
             onRequestRename={onRequestRename}
+            onRequestDelete={onRequestDelete}
             depth={depth}
           />
         );

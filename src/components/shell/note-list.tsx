@@ -48,6 +48,8 @@ type NoteListProps = {
   onNewNote: () => void;
   onSelect: (path: string, match?: string) => void;
   onContextMenu: (e: ReactMouseEvent, path: string) => void;
+  /** row trash button / Delete key */
+  onDelete: (path: string) => void;
   emptyText: string;
   // trash view
   trash: TrashItem[] | null;
@@ -85,6 +87,7 @@ export function NoteList({
   onNewNote,
   onSelect,
   onContextMenu,
+  onDelete,
   emptyText,
   trash,
   onRestore,
@@ -225,7 +228,7 @@ export function NoteList({
             {items.map((item) => {
               const active = samePath(selectedPath, item.path);
               return (
-                <li key={item.path}>
+                <li key={item.path} className="mdv-row-wrap">
                   <button
                     type="button"
                     role="option"
@@ -237,6 +240,12 @@ export function NoteList({
                       e.dataTransfer.effectAllowed = "move";
                     }}
                     onClick={() => onSelect(item.path)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Delete") {
+                        e.preventDefault();
+                        onDelete(item.path);
+                      }
+                    }}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       onContextMenu(e, item.path);
@@ -251,6 +260,15 @@ export function NoteList({
                     <span className="mdv-row__meta">
                       {[formatNoteDate(item.mtime), item.folder].filter(Boolean).join(" · ")}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="mdv-row__delete"
+                    aria-label={`${item.title} çöp kutusuna taşı`}
+                    data-tooltip="Çöp kutusuna taşı"
+                    onClick={() => onDelete(item.path)}
+                  >
+                    <Icon icon={Trash2} size={14} strokeWidth={1.7} />
                   </button>
                 </li>
               );

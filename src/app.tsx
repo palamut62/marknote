@@ -112,6 +112,7 @@ import {
   FileCode2,
   FileDown,
   FolderInput,
+  FolderOpen,
   FolderPlus,
   History,
   Languages,
@@ -370,7 +371,7 @@ export function App() {
   const [aiSelectionScope, setAiSelectionScope] = useState(false);
   const [editorContextMenu, setEditorContextMenu] = useState<{ x: number; y: number; range: TextRange; hasSelection: boolean } | null>(null);
   const [richContextMenu, setRichContextMenu] = useState<{ x: number; y: number; hasSelection: boolean } | null>(null);
-  const [rowMenu, setRowMenu] = useState<{ x: number; y: number; path: string; isDir: boolean } | null>(null);
+  const [rowMenu, setRowMenu] = useState<{ x: number; y: number; path: string; isDir: boolean; isRoot?: boolean } | null>(null);
   const [docMenu, setDocMenu] = useState<{ x: number; y: number } | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
@@ -1092,21 +1093,23 @@ export function App() {
     setRowMenu({ x: e.clientX, y: e.clientY, path, isDir: false });
   }, []);
   const handleFolderContextMenu = useCallback((e: ReactMouseEvent, entry: FileEntry) => {
-    setRowMenu({ x: e.clientX, y: e.clientY, path: entry.path, isDir: entry.isDir });
-  }, []);
+    setRowMenu({ x: e.clientX, y: e.clientY, path: entry.path, isDir: entry.isDir, isRoot: samePath(entry.path, rootPath) });
+  }, [rootPath]);
 
   const rowMenuItems = useMemo<ContextMenuItem[]>(() => {
     if (!rowMenu) return [];
-    const { path, isDir } = rowMenu;
+    const { path, isDir, isRoot } = rowMenu;
     if (isDir) {
-      return [
+      const items: ContextMenuItem[] = [
         { label: "Bu klasörde yeni not", icon: PenLine, onSelect: () => newNote(path) },
         { label: "Yeni alt klasör", icon: FolderPlus, onSelect: () => requestNewFolder(path) },
-        { label: "Yeniden adlandır", onSelect: () => requestRename(path) },
-        { label: IS_MAC ? "Finder'da göster" : "Dosya Gezgini'nde göster", icon: FolderInput, onSelect: () => void openPath(path) },
-        "divider",
-        { label: "Çöp kutusuna taşı", icon: Trash2, destructive: true, onSelect: () => requestTrash(path, true) },
       ];
+      // the workspace root itself is switched, not renamed or trashed
+      if (!isRoot) items.push({ label: "Yeniden adlandır", onSelect: () => requestRename(path) });
+      items.push({ label: IS_MAC ? "Finder'da göster" : "Dosya Gezgini'nde göster", icon: FolderInput, onSelect: () => void openPath(path) });
+      if (isRoot) items.push({ label: "Başka klasör aç", icon: FolderOpen, onSelect: () => void handleOpenFolder() });
+      else items.push("divider", { label: "Çöp kutusuna taşı", icon: Trash2, destructive: true, onSelect: () => requestTrash(path, true) });
+      return items;
     }
     const isPinned = pinned.some((p) => samePath(p, path));
     return [
@@ -1119,7 +1122,7 @@ export function App() {
       "divider",
       { label: "Çöp kutusuna taşı", icon: Trash2, destructive: true, onSelect: () => requestTrash(path, false) },
     ];
-  }, [rowMenu, pinned, newNote, requestNewFolder, requestRename, requestTrash, openNote, togglePin]);
+  }, [rowMenu, pinned, newNote, requestNewFolder, requestRename, requestTrash, openNote, togglePin, handleOpenFolder]);
 
   const exportToPdf = useCallback(async () => {
     try {
@@ -1596,8 +1599,16 @@ export function App() {
             rootPath={rootPath}
             onNewNote={() => newNote(navSection.kind === "folder" ? navSection.path : null)}
             onOpenFolder={() => void handleOpenFolder()}
+            onOpenFile={() => void handleOpenFile()}
             onNewFolder={() => rootPath && requestNewFolder(navSection.kind === "folder" ? navSection.path : rootPath)}
             onShowSettings={() => setSettingsOpen(true)}
+            activePath={activePath}
+            onOpenNote={(path) => {
+              openNote(path);
+              if (navCollapsed) setNavDrawer(false);
+            }}
+            onRequestRename={requestRename}
+            onRequestDelete={(entry) => requestTrash(entry.path, entry.isDir)}
             onMove={(src, dst) => void handleMove(src, dst)}
             onFolderContextMenu={handleFolderContextMenu}
             editingPath={null}
@@ -1628,6 +1639,7 @@ export function App() {
             onNewNote={() => newNote()}
             onSelect={selectFromList}
             onContextMenu={handleRowContextMenu}
+            onDelete={(path) => requestTrash(path, false)}
             emptyText={listEmptyText}
             trash={navSection.kind === "trash" ? trashItems : null}
             onRestore={(item) => void handleRestoreTrash(item)}

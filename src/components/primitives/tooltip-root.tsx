@@ -55,6 +55,8 @@ export function TooltipRoot() {
     const scheduleShow = (el: HTMLElement) => {
       if (showTimer != null) window.clearTimeout(showTimer);
       showTimer = window.setTimeout(() => {
+        // trigger removed meanwhile (e.g. a row deleted by its own button)
+        if (!el.isConnected) return;
         setTip(compute(el));
       }, SHOW_DELAY_MS);
     };
@@ -84,7 +86,7 @@ export function TooltipRoot() {
       else scheduleShow(next);
     };
 
-    // hide when scrolling, key presses, or window blur — avoid stale positions
+    // hide when clicking, scrolling, key presses, or window blur — avoid stale positions
     const dismiss = () => {
       currentTrigger = null;
       if (showTimer != null) window.clearTimeout(showTimer);
@@ -93,12 +95,14 @@ export function TooltipRoot() {
 
     document.addEventListener("mouseover", onOver);
     document.addEventListener("mouseout", onOut);
+    document.addEventListener("pointerdown", dismiss, true);
     document.addEventListener("scroll", dismiss, true);
     document.addEventListener("keydown", dismiss);
     window.addEventListener("blur", dismiss);
     return () => {
       document.removeEventListener("mouseover", onOver);
       document.removeEventListener("mouseout", onOut);
+      document.removeEventListener("pointerdown", dismiss, true);
       document.removeEventListener("scroll", dismiss, true);
       document.removeEventListener("keydown", dismiss);
       window.removeEventListener("blur", dismiss);

@@ -1,5 +1,5 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { Clock, FileText, FolderOpen, FolderPlus, NotebookPen, Pin, Plus, Settings, Trash2 } from "lucide-react";
+import { Clock, FileInput, FileText, FolderOpen, FolderPlus, NotebookPen, Pin, Plus, Settings, Trash2 } from "lucide-react";
 import { Icon } from "@/components/primitives";
 import { FileTree, type NewEntry } from "@/components/files/file-tree";
 import { basename, shortcutLabel, type FileEntry } from "@/lib";
@@ -18,9 +18,14 @@ type NavPanelProps = {
   rootPath: string | null;
   onNewNote: () => void;
   onOpenFolder: () => void;
+  onOpenFile: () => void;
   onNewFolder: () => void;
   onShowSettings: () => void;
-  // folder tree (reuses the file tree in folders-only mode)
+  // workspace tree: folders select a list scope, files open in the editor
+  activePath: string | null;
+  onOpenNote: (path: string) => void;
+  onRequestRename: (path: string) => void;
+  onRequestDelete: (entry: FileEntry) => void;
   onMove: (src: string, dstParent: string) => void;
   onFolderContextMenu: (e: ReactMouseEvent, entry: FileEntry) => void;
   editingPath: string | null;
@@ -66,8 +71,13 @@ export function NavPanel({
   rootPath,
   onNewNote,
   onOpenFolder,
+  onOpenFile,
   onNewFolder,
   onShowSettings,
+  activePath,
+  onOpenNote,
+  onRequestRename,
+  onRequestDelete,
   onMove,
   onFolderContextMenu,
   editingPath,
@@ -99,11 +109,25 @@ export function NavPanel({
       <div className="mdv-nav__folders">
         <div className="mdv-nav__heading">
           <span>Klasörler</span>
-          {rootPath ? (
-            <button type="button" className="mdv-nav__heading-btn" aria-label="Yeni klasör" data-tooltip="Yeni klasör" onClick={onNewFolder}>
-              <Icon icon={FolderPlus} size={14} strokeWidth={1.7} />
+          <div className="mdv-nav__heading-actions">
+            <button type="button" className="mdv-nav__heading-btn" aria-label="Dosya aç" data-tooltip={shortcutLabel("Dosya aç (⌘O)")} onClick={onOpenFile}>
+              <Icon icon={FileInput} size={14} strokeWidth={1.7} />
             </button>
-          ) : null}
+            <button
+              type="button"
+              className="mdv-nav__heading-btn"
+              aria-label={rootPath ? "Başka klasör aç" : "Klasör aç"}
+              data-tooltip={rootPath ? "Başka klasör aç" : "Klasör aç"}
+              onClick={onOpenFolder}
+            >
+              <Icon icon={FolderOpen} size={14} strokeWidth={1.7} />
+            </button>
+            {rootPath ? (
+              <button type="button" className="mdv-nav__heading-btn" aria-label="Yeni klasör" data-tooltip="Yeni klasör" onClick={onNewFolder}>
+                <Icon icon={FolderPlus} size={14} strokeWidth={1.7} />
+              </button>
+            ) : null}
+          </div>
         </div>
         {rootPath ? (
           <div className="mdv-nav__tree">
@@ -112,15 +136,20 @@ export function NavPanel({
               className={`mdv-nav__root${section.kind === "folder" && section.path === rootPath ? " is-active" : ""}`}
               title={rootPath}
               onClick={() => onSelectSection({ kind: "folder", path: rootPath })}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onFolderContextMenu(e, { name: basename(rootPath), path: rootPath, isDir: true });
+              }}
             >
               <Icon icon={FolderOpen} size={15} strokeWidth={1.7} />
               <span>{basename(rootPath)}</span>
             </button>
             <FileTree
               rootPath={rootPath}
-              activePath={null}
-              onSelect={() => undefined}
-              foldersOnly
+              activePath={activePath}
+              onSelect={onOpenNote}
+              onRequestRename={onRequestRename}
+              onRequestDelete={onRequestDelete}
               selectedFolder={section.kind === "folder" ? section.path : null}
               onSelectFolder={(path) => onSelectSection({ kind: "folder", path })}
               onMove={onMove}
@@ -136,10 +165,16 @@ export function NavPanel({
             />
           </div>
         ) : (
-          <button type="button" className="mdv-nav__item" onClick={onOpenFolder}>
-            <Icon icon={FolderOpen} size={16} strokeWidth={1.7} />
-            <span className="mdv-nav__label">Klasör aç</span>
-          </button>
+          <>
+            <button type="button" className="mdv-nav__item" onClick={onOpenFolder}>
+              <Icon icon={FolderOpen} size={16} strokeWidth={1.7} />
+              <span className="mdv-nav__label">Klasör aç</span>
+            </button>
+            <button type="button" className="mdv-nav__item" onClick={onOpenFile}>
+              <Icon icon={FileInput} size={16} strokeWidth={1.7} />
+              <span className="mdv-nav__label">Dosya aç</span>
+            </button>
+          </>
         )}
       </div>
 

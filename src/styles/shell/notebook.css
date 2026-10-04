@@ -284,6 +284,10 @@
   background: var(--surface-hover);
   color: var(--fg);
 }
+.mdv-nav__heading-actions {
+  display: flex;
+  gap: 2px;
+}
 .mdv-nav__tree {
   min-height: 0;
   overflow: auto;
@@ -297,6 +301,41 @@
 .mdv-nav__tree .mdv-tree__row.is-active {
   background: var(--accent-soft);
   font-weight: 600;
+}
+.mdv-nav__tree .mdv-tree__name {
+  font-family: inherit;
+  font-size: 13px;
+}
+.mdv-nav__tree .mdv-tree__row--file {
+  padding-right: 32px;
+}
+.mdv-tree__row-action {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  opacity: 0;
+}
+.mdv-tree__item:hover > .mdv-tree__row-action,
+.mdv-tree__row-action:focus-visible {
+  opacity: 1;
+}
+.mdv-tree__row-action:hover {
+  background: color-mix(in srgb, #b42318 10%, transparent);
+  color: #b42318;
+}
+:root[data-theme="gece"] .mdv-tree__row-action:hover,
+:root[data-theme="mocha"] .mdv-tree__row-action:hover,
+:root[data-theme="frappe"] .mdv-tree__row-action:hover,
+:root[data-theme="macchiato"] .mdv-tree__row-action:hover {
+  color: #f97066;
 }
 
 /* ---- note list --------------------------------------------------------------- */
@@ -423,6 +462,45 @@
 }
 .mdv-row.is-active {
   background: var(--accent-soft);
+}
+.mdv-row-wrap {
+  position: relative;
+}
+.mdv-row-wrap > .mdv-row {
+  padding-right: 40px;
+}
+.mdv-row__delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  opacity: 0;
+}
+.mdv-row-wrap:hover > .mdv-row__delete,
+.mdv-row-wrap:focus-within > .mdv-row__delete {
+  opacity: 1;
+}
+.mdv-row__delete:hover {
+  background: color-mix(in srgb, #b42318 10%, transparent);
+  color: #b42318;
+}
+:root[data-theme="gece"] .mdv-row__delete:hover,
+:root[data-theme="mocha"] .mdv-row__delete:hover,
+:root[data-theme="frappe"] .mdv-row__delete:hover,
+:root[data-theme="macchiato"] .mdv-row__delete:hover {
+  color: #f97066;
+}
+@media (hover: none) {
+  .mdv-row__delete,
+  .mdv-tree__row-action {
+    opacity: 1;
+  }
 }
 .mdv-row__title {
   display: flex;

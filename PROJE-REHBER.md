@@ -28,6 +28,7 @@ Tauri 2 (Rust) + React 19 + TypeScript masaüstü not uygulaması. Notlar seçil
 - Otomatik kayıt yok (isteğe bağlı, sonraki aşama). Kurtarma taslağı 750 ms gecikmeyle yazılır.
 - İnternet görselleri varsayılan kapalı. CSP henüz tanımlı değil (masaüstü testi bekliyor).
 - Native `alert/confirm/prompt` yasak; hepsi `overlays/dialogs.tsx`.
+- Sol panel (nav-panel) çalışma alanı ağacıdır: klasörler + desteklenen dosyalar (.md/.markdown/.mdx/.txt/.env). Klasöre tık = listeyi süzer, dosyaya tık = açar. Başlıkta her zaman "Dosya aç" ve "Klasör aç/Başka klasör aç". Sil: satır üstü çöp ikonu veya Delete; F2 = yeniden adlandır; sağ tık menüsü. Kök klasör yeniden adlandırılmaz/silinmez.
 
 ## Doğrulama
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
+import { ChevronRight, FileText, Folder, FolderOpen, Trash2 } from "lucide-react";
 import { Icon } from "@/components/primitives";
 import type { FileEntry } from "@/lib";
 import { isSameOrChildPath, samePath } from "@/lib/paths";
@@ -7,6 +7,22 @@ import { FileTree, type NewEntry } from "./file-tree";
 
 export const DRAG_MIME = "application/x-marknote-path";
 
+/** F2 renames, Delete moves to trash — same keys as the OS file manager */
+function rowKeyHandler(
+  entry: FileEntry,
+  onRequestRename?: (path: string) => void,
+  onRequestDelete?: (entry: FileEntry) => void,
+) {
+  return (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "F2" && onRequestRename) {
+      e.preventDefault();
+      onRequestRename(entry.path);
+    } else if (e.key === "Delete" && onRequestDelete) {
+      e.preventDefault();
+      onRequestDelete(entry);
+    }
+  };
+}
 
 type FolderNodeProps = {
   entry: FileEntry;
@@ -16,6 +32,7 @@ type FolderNodeProps = {
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
   /** double-click on the row name → start inline rename */
   onRequestRename?: (path: string) => void;
+  onRequestDelete?: (entry: FileEntry) => void;
   /** double-click on a folder row → navigate into it (becomes the tree root). takes priority over rename. */
   onNavigate?: (path: string) => void;
   editingPath?: string | null;
@@ -38,6 +55,7 @@ export function FolderNode({
   onMove,
   onContextMenu,
   onRequestRename,
+  onRequestDelete,
   onNavigate,
   editingPath,
   onSubmitRename,
@@ -121,6 +139,7 @@ export function FolderNode({
           onRequestRename(entry.path);
         }}
         onContextMenu={onCtx}
+        onKeyDown={rowKeyHandler(entry, onRequestRename, onRequestDelete)}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -151,6 +170,7 @@ export function FolderNode({
           onMove={onMove}
           onContextMenu={onContextMenu}
           onRequestRename={onRequestRename}
+          onRequestDelete={onRequestDelete}
           onNavigate={onNavigate}
           editingPath={editingPath}
           onSubmitRename={onSubmitRename}
@@ -175,6 +195,7 @@ type FileNodeProps = {
   onSelect: (path: string) => void;
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
   onRequestRename?: (path: string) => void;
+  onRequestDelete?: (entry: FileEntry) => void;
   depth: number;
 };
 
@@ -184,6 +205,7 @@ export function FileNode({
   onSelect,
   onContextMenu,
   onRequestRename,
+  onRequestDelete,
   depth,
 }: FileNodeProps) {
   const onDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
@@ -217,14 +239,26 @@ export function FileNode({
           onRequestRename(entry.path);
         }}
         onContextMenu={onCtx}
+        onKeyDown={rowKeyHandler(entry, onRequestRename, onRequestDelete)}
         onDragStart={onDragStart}
         title={entry.path}
       >
         <span className="mdv-tree__icon">
           <Icon icon={FileText} size={13} strokeWidth={1.5} />
         </span>
-        <span className="mdv-tree__name">{entry.name}</span>
+        <span className="mdv-tree__name">{entry.name.replace(/\.(md|markdown)$/i, "")}</span>
       </button>
+      {onRequestDelete ? (
+        <button
+          type="button"
+          className="mdv-tree__row-action"
+          aria-label={`${entry.name} çöp kutusuna taşı`}
+          data-tooltip="Çöp kutusuna taşı"
+          onClick={() => onRequestDelete(entry)}
+        >
+          <Icon icon={Trash2} size={13} strokeWidth={1.7} />
+        </button>
+      ) : null}
     </li>
   );
 }
