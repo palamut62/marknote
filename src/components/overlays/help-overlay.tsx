@@ -16,55 +16,56 @@ type Group = { title: string; rows: Row[] };
 
 const GROUPS: Group[] = [
   {
-    title: "file",
+    title: "Dosya",
     rows: [
-      { keys: "⌘+⇧+O", label: "open a folder of notes" },
-      { keys: "⌘+O", label: "open a single .md file" },
-      { keys: "⌘+N", label: "new untitled buffer" },
-      { keys: "⌘+S", label: "save current file" },
-      { keys: "⌘+⇧+S", label: "save as / copy to new location" },
-      { keys: "⌘+⌥+Z", label: "undo last sidebar file action" },
+      { keys: "⌘+⇧+O", label: "Not klasörü aç" },
+      { keys: "⌘+O", label: "Tek bir .md dosyası aç" },
+      { keys: "⌘+N", label: "Yeni not" },
+      { keys: "⌘+S", label: "Kaydet (yeni notta kaydedilecek yeri sorar)" },
+      { keys: "⌘+⇧+S", label: "Farklı kaydet" },
+      { keys: "⌘+⇧+F", label: "Notlarda ara (başlık ve içerik)" },
+      { keys: "⌘+⌥+Z", label: "Son taşıma / yeniden adlandırmayı geri al" },
     ],
   },
   {
-    title: "view",
+    title: "Görünüm",
     rows: [
-      { keys: "⌘+K", label: "open command palette" },
-      { keys: "⌘+B", label: "show / hide sidebar" },
-      { keys: "⌘+.", label: "toggle reading mode" },
-      { keys: "⌃+⌘+F", label: "toggle fullscreen" },
+      { keys: "⌘+K", label: "Komut paletini aç" },
+      { keys: "⌘+⇧+.", label: "Odak modu (yan panelleri gizle)" },
+      { keys: "⌘+.", label: "Okuma görünümünü aç / kapat" },
+      { keys: "⌃+⌘+F", label: "Tam ekranı aç / kapat" },
     ],
   },
   {
-    title: "edit",
+    title: "Düzenle",
     rows: [
-      { keys: "⌘+F", label: "find / replace in editor" },
-      { keys: "⌘+G", label: "find next match" },
+      { keys: "⌘+F", label: "Markdown görünümünde bul / değiştir" },
+      { keys: "⌘+G", label: "Sonraki eşleşmeyi bul" },
     ],
   },
   {
-    title: "share",
+    title: "Paylaş",
     rows: [
-      { keys: "⌘+⇧+C", label: "copy markdown to clipboard" },
-      { keys: "⌘+P", label: "export to pdf" },
+      { keys: "⌘+⇧+C", label: "Markdown'ı panoya kopyala" },
+      { keys: "⌘+P", label: "PDF olarak dışa aktar" },
     ],
   },
   {
-    title: "help",
+    title: "Yardım",
     rows: [
-      { keys: "⌘+/", label: "open this help" },
-      { keys: "esc", label: "close any popup / overlay" },
+      { keys: "⌘+/", label: "Bu yardımı aç" },
+      { keys: "esc", label: "Açık pencereyi kapat" },
     ],
   },
 ];
 
 const TIPS = [
-  "marknote is built around one loop: collect notes → write → share with ai. nothing leaves your machine until you press copy.",
-  "open a folder to turn the sidebar into your context library. tap the 🔍 to search every .md across the tree.",
-  "press ⌘. for distraction-free reading mode — great for proofing before pasting into any ai chat.",
-  "⌘⇧C copies the current file as plain markdown. drop it straight into any chat.",
-  "drag the divider between editor and preview to resize. ratio is remembered per session.",
-  "code blocks have a hover-to-show copy button. mermaid + shiki all render live.",
+  "Notlarınız seçtiğiniz klasörde düz .md dosyaları olarak durur; hesap veya bulut yok.",
+  "Sol panelden klasör seçin, ortadaki listeden not açın. Arama kutusu başlıklarda ve içerikte birlikte arar; sonuca tıklayınca eşleşen yer seçili açılır.",
+  "Kayıt durumu üst çubukta görünür: Kaydedilmedi, Kaydediliyor, Kaydedildi ya da Kayıt başarısız (Tekrar dene).",
+  "Silinen notlar Çöp kutusuna gider; oradan geri yükleyebilirsiniz. Aynı adda dosya varsa üzerine yazılmaz.",
+  "⋯ menüsünden Markdown, Bölünmüş (kaynak + önizleme) ve Okuma görünümlerine geçebilir, sürüm geçmişini açabilirsiniz.",
+  "Yapay zeka ve geliştirici araçları ⋯ menüsünde ve Ayarlar > Gelişmiş altında; günlük yazma alanında yer kaplamaz.",
 ];
 
 export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProps) {
@@ -82,7 +83,7 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
   }, [open, onReplayTutorial, onClose]);
 
   return (
-    <Overlay open={open} onClose={onClose} ariaLabel="how to use marknote" variant="modal">
+    <Overlay open={open} onClose={onClose} ariaLabel="Marknote nasıl kullanılır" variant="modal">
       <header className="mdv-help__header">
         <div className="mdv-help__title">
           <img
@@ -96,12 +97,12 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
           />
           <div className="mdv-help__title-text">
             <span className="mdv-help__brand">marknote</span>
-            <span className="mdv-help__subtitle">keyboard + tips</span>
+            <span className="mdv-help__subtitle">Klavye + ipuçları</span>
           </div>
         </div>
         <Button
-          title="close (esc)"
-          aria-label="close"
+          title="Kapat (Esc)"
+          aria-label="Kapat"
           onClick={onClose}
           icon={<Icon icon={X} size={14} strokeWidth={1.5} />}
         />
@@ -109,7 +110,7 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
 
       <div className="mdv-help__body">
         <section className="mdv-help__section">
-          <h3 className="mdv-help__h">shortcuts</h3>
+          <h3 className="mdv-help__h">Kısayollar</h3>
           <div className="mdv-help__groups">
             {GROUPS.map((g) => (
               <div key={g.title} className="mdv-help__group">
@@ -134,7 +135,7 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
         </section>
 
         <section className="mdv-help__section">
-          <h3 className="mdv-help__h">tips</h3>
+          <h3 className="mdv-help__h">İpuçları</h3>
           <ul className="mdv-help__tips">
             {TIPS.map((tip) => (
               <li key={tip}>{shortcutLabel(tip)}</li>
@@ -144,7 +145,7 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
       </div>
 
       <footer className="mdv-help__footer">
-        <span>marknote · open source · MIT · github.com/palamut62/marknote</span>
+        <span>marknote · açık kaynak · MIT · github.com/palamut62/marknote</span>
         {onReplayTutorial ? (
           <button
             type="button"
@@ -155,7 +156,7 @@ export function HelpOverlay({ open, onClose, onReplayTutorial }: HelpOverlayProp
             }}
           >
             <Sparkles size={11} strokeWidth={1.75} />
-            replay tutorial
+            Turu tekrar oynat
           </button>
         ) : null}
       </footer>

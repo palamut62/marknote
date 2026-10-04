@@ -42,7 +42,7 @@ function buildRows(commands: Command[], grouped: boolean): RenderRow[] {
   // anything without a category falls under "other"
   const other = byCategory.get("other");
   if (other && other.length > 0) {
-    rows.push({ kind: "header", key: "h-other", label: "other" });
+    rows.push({ kind: "header", key: "h-other", label: "Diğer" });
     for (const cmd of other) {
       rows.push({ kind: "item", key: cmd.id, cmd, index });
       index += 1;
@@ -110,12 +110,12 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
   }, [activeIndex, open]);
 
   return (
-    <Overlay open={open} onClose={onClose} ariaLabel="command palette" variant="palette">
+    <Overlay open={open} onClose={onClose} ariaLabel="Komut paleti" variant="palette">
       <div className="mdv-palette__search">
         <input
           ref={inputRef}
           className="mdv-palette__input"
-          placeholder="type a command…"
+          placeholder="Komut yaz…"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -127,7 +127,7 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
       </div>
       <ul className="mdv-palette__list" role="listbox" ref={listRef}>
         {rows.length === 0 ? (
-          <li className="mdv-palette__empty">no matches</li>
+          <li className="mdv-palette__empty">Eşleşme yok</li>
         ) : (
           rows.map((row) => {
             if (row.kind === "header") {
@@ -167,9 +167,9 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
         )}
       </ul>
       <div className="mdv-palette__footer">
-        <span><Kbd>↑</Kbd> <Kbd>↓</Kbd> navigate</span>
-        <span><Kbd>↵</Kbd> run</span>
-        <span><Kbd>esc</Kbd> close</span>
+        <span><Kbd>↑</Kbd> <Kbd>↓</Kbd> gezin</span>
+        <span><Kbd>↵</Kbd> çalıştır</span>
+        <span><Kbd>esc</Kbd> kapat</span>
       </div>
     </Overlay>
   );

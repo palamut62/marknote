@@ -21,7 +21,7 @@ export function DropOverlay({ active }: DropOverlayProps) {
         />
         <div className="mdv-drop__icon-row">
           <FileText size={16} strokeWidth={1.5} />
-          <span>drop your markdown here</span>
+          <span>Markdown dosyanı buraya bırak</span>
         </div>
         <span className="mdv-drop__hint">.md · .markdown · .mdx · .txt · .env</span>
       </div>

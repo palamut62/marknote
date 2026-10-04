@@ -10,9 +10,49 @@
   --breadcrumb-h: 30px;
   --statusbar-h: 28px;
 
+  /* defaults for themes that don't define them */
+  --accent-fg: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
+
+  --nav-w: 200px;
+  --list-w: 272px;
+  --hit: 34px;
+
   --easing: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
+}
+
+/* sade — warm neutral paper, ink text, one orange accent (default light) */
+:root[data-theme="sade"] {
+  --bg: #faf9f7;
+  --bg-rgb: 250, 249, 247;
+  --fg: #1f2328;
+  --muted: #5f6368;         /* 5.7:1 on bg, 5.4:1 on surface */
+  --border: #e4e1db;
+  --accent: #c2410c;        /* 4.9:1 on bg; white text on it 5.2:1 */
+  --accent-fg: #ffffff;
+  --accent-soft: #f6ece4;   /* selected row */
+  --surface: #f3f1ed;
+  --surface-hover: #ebe8e2;
+  --shadow-soft: 0 1px 2px rgba(31, 35, 40, 0.05), 0 2px 8px rgba(31, 35, 40, 0.04);
+  color-scheme: light;
+}
+
+/* gece — the same layout at night */
+:root[data-theme="gece"] {
+  --bg: #1b1d21;
+  --bg-rgb: 27, 29, 33;
+  --fg: #e6e6e3;
+  --muted: #a0a4ab;         /* 6.8:1 on bg */
+  --border: #2c2f35;
+  --accent: #f08a4b;
+  --accent-fg: #1b1d21;
+  --accent-soft: #2b2622;
+  --surface: #15171a;
+  --surface-hover: #24272c;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
 }
 
 /* catppuccin latte (light) — solid by default */
@@ -21,7 +61,7 @@
   --bg: #eff1f5;            /* base */
   --bg-rgb: 239, 241, 245;
   --fg: #4c4f69;            /* text */
-  --muted: #9ca0b0;         /* overlay0 */
+  --muted: #5c5f77;         /* subtext1 — 5.5:1 (overlay0 was 2.3:1) */
   --border: #ccd0da;        /* surface0 */
   --accent: #fe640b;        /* peach */
   --surface: #e6e9ef;       /* mantle */
@@ -35,7 +75,7 @@
   --bg: #303446;            /* base */
   --bg-rgb: 48, 52, 70;
   --fg: #c6d0f5;            /* text */
-  --muted: #737994;         /* overlay0 — official spec (was incorrectly overlay1) */
+  --muted: #a5adce;         /* subtext0 — 5.5:1 on base */
   --border: #414559;        /* surface0 */
   --accent: #ca9ee6;        /* mauve — distinct cool-purple */
   --surface: #292c3c;       /* mantle */
@@ -49,7 +89,7 @@
   --bg: #24273a;
   --bg-rgb: 36, 39, 58;
   --fg: #cad3f5;            /* text */
-  --muted: #6e738d;         /* overlay0 */
+  --muted: #a5adcb;         /* subtext0 — 6.6:1 on base */
   --border: #363a4f;        /* surface0 */
   --accent: #f5a97f;        /* peach */
   --surface: #1e2030;       /* mantle */
@@ -63,7 +103,7 @@
   --bg: #f7f4e9;
   --bg-rgb: 247, 244, 233;
   --fg: #2d3624;
-  --muted: #8b9479;
+  --muted: #646b55;         /* 5.0:1 on paper */
   --border: #dad6c4;
   --accent: #7b9a4e;
   --surface: #ede9d8;
@@ -78,7 +118,7 @@
   --bg: #1e1e2e;
   --bg-rgb: 30, 30, 46;
   --fg: #cdd6f4;            /* text */
-  --muted: #6c7086;         /* overlay0 */
+  --muted: #9399b2;         /* overlay2 — 5.8:1 on base */
   --border: #313244;        /* surface0 */
   --accent: #fab387;        /* peach */
   --surface: #181825;       /* mantle */
@@ -92,7 +132,7 @@
   --bg: #1f1f28;            /* sumiInk1 — wave base */
   --bg-rgb: 31, 31, 40;
   --fg: #dcd7ba;            /* fujiWhite — warm cream */
-  --muted: #727169;         /* fujiGray */
+  --muted: #a6a69c;         /* 6.7:1 on sumiInk1 */
   --border: #363646;        /* sumiInk3 — subtle divider */
   --accent: #7e9cd8;        /* crystalBlue — iconic */
   --surface: #2a2a37;       /* sumiInk2 */
@@ -106,7 +146,7 @@
   --bg: #1f2430;            /* common.bg */
   --bg-rgb: 31, 36, 48;
   --fg: #cbccc6;            /* common.fg */
-  --muted: #707a8c;         /* ui.fg — readable on dark bg */
+  --muted: #8a9199;         /* 4.9:1 on bg */
   --border: #33415e;        /* ui.line */
   --accent: #ffa759;        /* common.accent — warm orange */
   --surface: #191e2a;       /* editor.gutter */
@@ -120,7 +160,7 @@
   --bg: #191724;            /* base */
   --bg-rgb: 25, 23, 36;
   --fg: #e0def4;            /* text */
-  --muted: #6e6a86;         /* muted */
+  --muted: #908caa;         /* subtle — 5.9:1 on base */
   --border: #26233a;        /* overlay */
   --accent: #ebbcba;        /* rose — signature pink */
   --surface: #1f1d2e;       /* surface */

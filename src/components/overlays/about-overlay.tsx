@@ -12,8 +12,9 @@ type AboutOverlayProps = {
 };
 
 const REPO_URL = "https://github.com/palamut62/marknote";
-const SITE_URL = "https://github.com/palamut62/marknote";
-const AUTHOR_PERSONAL_URL = "https://github.com/palamut62";
+export const OWNER_NAME = "Umut Çelik";
+export const OWNER_X_URL = "https://x.com/palamut62";
+export const OWNER_GITHUB_URL = "https://github.com/palamut62";
 
 let cachedVersion: string | null = null;
 
@@ -57,12 +58,12 @@ export function AboutOverlay({ open, onClose, onCheckForUpdates }: AboutOverlayP
   };
 
   return (
-    <Overlay open={open} onClose={onClose} ariaLabel="about marknote" variant="modal">
+    <Overlay open={open} onClose={onClose} ariaLabel="marknote hakkında" variant="modal">
       <header className="mdv-about__header">
-        <span className="mdv-about__eyebrow">about</span>
+        <span className="mdv-about__eyebrow">Hakkında</span>
         <Button
-          title="close (esc)"
-          aria-label="close"
+          title="Kapat (Esc)"
+          aria-label="Kapat"
           onClick={onClose}
           icon={<Icon icon={X} size={14} strokeWidth={1.5} />}
         />
@@ -93,11 +94,11 @@ export function AboutOverlay({ open, onClose, onCheckForUpdates }: AboutOverlayP
             disabled={checking}
           >
             <Icon icon={Download} size={12} strokeWidth={1.5} />
-            {checking ? "checking…" : "check for updates"}
+            {checking ? "Denetleniyor…" : "Güncellemeleri denetle"}
           </button>
         ) : null}
         <p className="mdv-about__tagline">
-          a local markdown editor, built for the notes you share with ai.
+          Sade, yerel bir not defteri. Notlarınız bilgisayarınızda düz metin dosyaları olarak kalır.
         </p>
 
         <div className="mdv-about__links">
@@ -107,27 +108,43 @@ export function AboutOverlay({ open, onClose, onCheckForUpdates }: AboutOverlayP
             onClick={() => void handleOpen(REPO_URL)}
           >
             <Icon icon={Star} size={13} strokeWidth={1.5} />
-            star on github
+            GitHub'da yıldızla
           </button>
           <button
             type="button"
             className="mdv-about__link"
-            onClick={() => void handleOpen(SITE_URL)}
+            onClick={() => void handleOpen(REPO_URL)}
           >
             <Icon icon={Globe} size={13} strokeWidth={1.5} />
-            github.com/palamut62/marknote
+            Proje deposu
           </button>
         </div>
       </div>
 
-      <footer className="mdv-about__footer">
-        <button
-          type="button"
+      <footer className="mdv-about__footer mdv-about__owner">
+        <span>Ürün sahibi: {OWNER_NAME}</span>
+        <span aria-hidden>·</span>
+        <a
+          href={OWNER_X_URL}
           className="mdv-about__footer-link"
-          onClick={() => void handleOpen(AUTHOR_PERSONAL_URL)}
+          onClick={(e) => {
+            e.preventDefault();
+            void handleOpen(OWNER_X_URL);
+          }}
         >
-          github.com/palamut62
-        </button>
+          X: @palamut62
+        </a>
+        <span aria-hidden>·</span>
+        <a
+          href={OWNER_GITHUB_URL}
+          className="mdv-about__footer-link"
+          onClick={(e) => {
+            e.preventDefault();
+            void handleOpen(OWNER_GITHUB_URL);
+          }}
+        >
+          GitHub: palamut62
+        </a>
       </footer>
     </Overlay>
   );

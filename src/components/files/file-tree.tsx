@@ -22,6 +22,10 @@ type FileTreeProps = {
   onCancelNew?: () => void;
   treeVersion?: number;
   depth?: number;
+  /** navigation mode: list folders only; clicking a folder selects it */
+  foldersOnly?: boolean;
+  selectedFolder?: string | null;
+  onSelectFolder?: (path: string) => void;
 };
 
 export function FileTree({
@@ -40,6 +44,9 @@ export function FileTree({
   onCancelNew,
   treeVersion = 0,
   depth = 0,
+  foldersOnly = false,
+  selectedFolder = null,
+  onSelectFolder,
 }: FileTreeProps) {
   const [entries, setEntries] = useState<FileEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +56,7 @@ export function FileTree({
     setError(null);
     listFolder(rootPath)
       .then((items) => {
-        if (!cancelled) setEntries(items);
+        if (!cancelled) setEntries(foldersOnly ? items.filter((item) => item.isDir) : items);
       })
       .catch((e) => {
         if (!cancelled) {
@@ -60,21 +67,21 @@ export function FileTree({
     return () => {
       cancelled = true;
     };
-  }, [rootPath, treeVersion]);
+  }, [rootPath, treeVersion, foldersOnly]);
 
   if (error) {
     return (
       <div className="mdv-tree__error">
         <img src={errorIconUrl} alt="" aria-hidden width={56} height={56} className="mdv-tree__error-art" />
-        <span>cannot read folder</span>
+        <span>Klasör okunamadı</span>
       </div>
     );
   }
   if (!entries) {
-    return <div className="mdv-tree__loading">loading…</div>;
+    return <div className="mdv-tree__loading">Yükleniyor…</div>;
   }
   if (entries.length === 0 && depth === 0 && !(newEntry && newEntry.parent === rootPath)) {
-    return <div className="mdv-tree__empty">empty folder</div>;
+    return <div className="mdv-tree__empty">{foldersOnly ? "Alt klasör yok" : "Klasör boş"}</div>;
   }
 
   const showNewEntryHere = newEntry && newEntry.parent === rootPath;
@@ -123,6 +130,9 @@ export function FileTree({
               onCancelNew={onCancelNew}
               treeVersion={treeVersion}
               depth={depth}
+              foldersOnly={foldersOnly}
+              selectedFolder={selectedFolder}
+              onSelectFolder={onSelectFolder}
             />
           );
         }

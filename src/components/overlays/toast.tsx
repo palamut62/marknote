@@ -89,8 +89,8 @@ export function Toast({
       ) : null}
       <Button
         className="mdv-toast__dismiss"
-        title="dismiss"
-        aria-label="dismiss"
+        title="Kapat"
+        aria-label="Kapat"
         onClick={dismissWithExit}
         icon={<Icon icon={X} size={11} strokeWidth={1.5} />}
       />

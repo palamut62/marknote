@@ -1,6 +1,6 @@
-import { Braces, CircleHelp, Settings } from "lucide-react";
-import { Button, Icon } from "@/components/primitives";
-import { formatTokens, shortcutLabel, startWindowDrag } from "@/lib";
+import { CircleHelp, Lock } from "lucide-react";
+import { Icon } from "@/components/primitives";
+import { shortcutLabel, startWindowDrag } from "@/lib";
 
 export type VimMode = "normal" | "insert" | "visual" | "replace";
 
@@ -8,79 +8,43 @@ type StatusBarProps = {
   fileName?: string;
   words: number;
   minutes: number;
-  /** rough token count of the currently-loaded buffer */
+  /** kept for callers that compute it; only shown through `tokensLabel` */
   docTokens: number;
+  /** technical counter (advanced setting); null hides it */
+  tokensLabel?: string | null;
   onShowHelp: () => void;
-  onShowSettings?: () => void;
-  onShowDeveloperTools?: () => void;
-  /** when set, renders a vim-mode pill at the bottom-left (#23) */
+  onShowAbout: () => void;
+  /** when set, renders a vim-mode pill (markdown view only) */
   vimMode?: VimMode | null;
 };
 
-function vimModeLabel(mode: VimMode): string {
-  switch (mode) {
-    case "normal":
-      return "NORMAL";
-    case "insert":
-      return "INSERT";
-    case "visual":
-      return "VISUAL";
-    case "replace":
-      return "REPLACE";
-  }
-}
-
-export function StatusBar({
-  fileName,
-  words,
-  minutes,
-  docTokens,
-  onShowHelp,
-  onShowSettings,
-  onShowDeveloperTools,
-  vimMode,
-}: StatusBarProps) {
+export function StatusBar({ fileName, words, minutes, tokensLabel, onShowHelp, onShowAbout, vimMode }: StatusBarProps) {
   return (
     <footer className="mdv-statusbar" data-tauri-drag-region onMouseDown={startWindowDrag}>
       <div className="mdv-statusbar__group" data-tauri-drag-region>
-        {vimMode ? (
-          <span className={`mdv-vim-pill mdv-vim-pill--${vimMode}`}>{vimModeLabel(vimMode)}</span>
-        ) : null}
-        <span data-tauri-drag-region>{fileName ?? "untitled"}</span>
-      </div>
-      <div className="mdv-statusbar__group" data-tauri-drag-region>
-        <span>
-          {words} {words === 1 ? "word" : "words"}
+        <span className="mdv-statusbar__local" title="Notlar yalnız bu bilgisayardaki dosyalarda durur">
+          <Icon icon={Lock} size={12} /> Yerel notlar
         </span>
-        <span>·</span>
-        <span>~{formatTokens(docTokens)} tokens</span>
-        <span>·</span>
-        <span>{minutes} min read</span>
-        {onShowSettings ? (
-          <Button
-            className="mdv-statusbar__help"
-            data-tooltip="settings"
-            aria-label="settings"
-            onClick={onShowSettings}
-            icon={<Icon icon={Settings} size={12} strokeWidth={1.5} />}
-          />
+        {vimMode ? <span className={`mdv-vim-pill mdv-vim-pill--${vimMode}`}>{vimMode.toUpperCase()}</span> : null}
+      </div>
+      <div className="mdv-statusbar__group mdv-statusbar__center" data-tauri-drag-region>
+        <span>{fileName ?? "Yeni not"}</span>
+        <span aria-hidden>·</span>
+        <span>{words.toLocaleString("tr-TR")} kelime</span>
+        <span aria-hidden>·</span>
+        <span>{minutes} dk okuma</span>
+        {tokensLabel ? (
+          <>
+            <span aria-hidden>·</span>
+            <span>{tokensLabel}</span>
+          </>
         ) : null}
-        {onShowDeveloperTools ? (
-          <Button
-            className="mdv-statusbar__help"
-            data-tooltip="developer tools"
-            aria-label="developer tools"
-            onClick={onShowDeveloperTools}
-            icon={<Icon icon={Braces} size={12} strokeWidth={1.5} />}
-          />
-        ) : null}
-        <Button
-          className="mdv-statusbar__help"
-          data-tooltip={shortcutLabel("how to use (⌘/)")}
-          aria-label="how to use"
-          onClick={onShowHelp}
-          icon={<Icon icon={CircleHelp} size={12} strokeWidth={1.5} />}
-        />
+      </div>
+      <div className="mdv-statusbar__group">
+        <button type="button" className="mdv-statusbar__link" onClick={onShowHelp} data-tooltip={shortcutLabel("Yardım ve kısayollar (⌘/)")}>
+          <Icon icon={CircleHelp} size={12} /> Yardım
+        </button>
+        <button type="button" className="mdv-statusbar__link" onClick={onShowAbout}>Hakkında</button>
       </div>
     </footer>
   );

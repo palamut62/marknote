@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { Breadcrumb, StatusBar, TitleBar, type VimMode } from "@/components/chrome";
+import { StatusBar, type VimMode } from "@/components/chrome";
 import {
   Editor,
   MarkdownInspector,
@@ -11,25 +11,32 @@ import {
   RichToolbar,
   Splitter,
   type EditorHandle,
+  type RichEditorHandle,
 } from "@/components/editor";
+import { EditorErrorBoundary } from "@/components/editor/editor-error-boundary";
 import type { Editor as TiptapEditor } from "@tiptap/react";
-import { ContextMenu, Sidebar, type ContextMenuItem } from "@/components/files";
+import { ContextMenu, type ContextMenuItem } from "@/components/files";
 import {
   AboutOverlay,
   AiReviewOverlay,
   CommandPalette,
+  ConfirmDialog,
   DeveloperToolsOverlay,
   DropOverlay,
   HelpOverlay,
+  HistoryOverlay,
+  PromptDialog,
+  RecoveryDialog,
+  SecretSendDialog,
   SettingsOverlay,
-  SnapshotsOverlay,
   Toast,
-  UnsavedChangesOverlay,
-  WelcomeOverlay,
+  UnsavedChangesDialog,
 } from "@/components/overlays";
-import { TooltipRoot } from "@/components/primitives";
+import { TooltipRoot, Icon } from "@/components/primitives";
+import { NavPanel, type NavSection } from "@/components/shell/nav-panel";
+import { NoteList, type NoteListItem } from "@/components/shell/note-list";
+import { EditorHeader, VIEW_LABELS, type ViewMode } from "@/components/shell/editor-header";
 import {
-  useContextMenu,
   useDebouncedValue,
   useFileOps,
   useFileSession,
@@ -44,6 +51,7 @@ import {
 } from "@/hooks";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -54,51 +62,141 @@ import {
   estimateTokens,
   exportPreviewToHtml,
   exportPreviewToPdf,
+  formatTokens,
   getWhatsNewToastMessage,
+  IS_MAC,
   isEditablePath,
+  joinPath,
   PdfExportError,
   pickFolder,
   pickMarkdownFile,
-  removeEntry,
   STORAGE_KEYS,
   DEFAULT_PROOFREAD_PROMPT,
   DEFAULT_PROMPTIFY_PROMPT,
   DEFAULT_TRANSLATE_PROMPT,
   applyMarkdownAction,
-  createSnapshot,
-  deleteSnapshot,
   extractHeadings,
   insertTemplate,
-  listSnapshots,
   lintMarkdown,
   proofreadMarkdown,
   promptifyMarkdown,
+  translateMarkdown,
+  LANGUAGES,
   type MarkdownAction,
-  type Snapshot,
   type TextRange,
   type ExportProfile,
+  type FileEntry,
 } from "@/lib";
 import { UPDATES_ENABLED } from "@/lib/updater";
-import { translateMarkdown, LANGUAGES } from "@/lib";
 import { applyDockMode, collapseDock, expandDock, type DockMode } from "@/lib/dock";
-import { sourceHasSecrets } from "@/lib/secret-mask";
-import { CheckCheck, ChevronLeft, ChevronRight, Clipboard, Copy, Languages, MousePointer2, Scissors, TextCursorInput, WandSparkles } from "lucide-react";
-import { Icon } from "@/components/primitives";
+import { maskSecretsInText, sourceHasSecrets } from "@/lib/secret-mask";
+import { buildNoteIndex, deriveTitle, searchNotes, upsertNote, type NoteIndex } from "@/lib/notes-index";
+import { isSameOrChildPath, remapPath, samePath } from "@/lib/paths";
+import { deleteFromTrash, emptyTrash, listTrash, moveToTrash, restoreFromTrash, type TrashItem } from "@/lib/trash";
+import {
+  deleteVersion,
+  listVersions,
+  migrateLegacySnapshots,
+  readVersion,
+  saveVersion,
+  type HistoryEntry,
+} from "@/lib/history";
+import {
+  BookOpen,
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  Clipboard,
+  Copy,
+  Columns2,
+  FileCode2,
+  FileDown,
+  FolderInput,
+  FolderPlus,
+  History,
+  Languages,
+  Maximize2,
+  MousePointer2,
+  PenLine,
+  Pin,
+  PinOff,
+  Save,
+  Scissors,
+  Settings2,
+  TextCursorInput,
+  Trash2,
+  WandSparkles,
+} from "lucide-react";
 import "./app.css";
 
+const AI_TIMEOUT_MS = 90_000;
+const AI_MAX_CHARS = 100_000;
+const NAV_COLLAPSE_PX = 1000;
+const LIST_COLLAPSE_PX = 760;
+
+type AiKind = "proofread" | "promptify" | "translate";
+type AiJob = { kind: AiKind; label: string; docId: number; controller: AbortController };
+type AiReview = { title: string; original: string; next: string; range: TextRange; docId: number };
+type PendingNavigation = { action: () => void; quit?: boolean };
+type InfoToast = { message: string; action?: { label: string; onClick: () => void } };
+type ConfirmState = {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  destructive?: boolean;
+  onConfirm: () => void;
+};
+type PromptState = {
+  title: string;
+  label: string;
+  initialValue: string;
+  confirmLabel: string;
+  onSubmit: (value: string) => void;
+};
+
+const INVALID_NAME = /[<>:"/\\|?*\u0000-\u001f]/;
+
+function validateName(name: string): string | null {
+  if (INVALID_NAME.test(name)) return 'Ad şu karakterleri içeremez: < > : " / \\ | ? *';
+  if (name === "." || name === "..") return "Geçersiz ad";
+  return null;
+}
+
+/** File name for a new note: its title, minus characters Windows rejects. */
+function fileNameFromTitle(title: string): string {
+  const clean = title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+  return `${clean || "Yeni not"}.md`;
+}
+
+function useWindowWidth(): number {
+  const [width, setWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return width;
+}
+
+function relativeTo(root: string | null, path: string): string {
+  if (!root || !isSameOrChildPath(path, root)) return path;
+  return path.replace(/\\/g, "/").slice(root.replace(/\\/g, "/").replace(/\/$/, "").length + 1);
+}
+
 export function App() {
-  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
   const [navigationSaving, setNavigationSaving] = useState(false);
+  const [infoToast, setInfoToast] = useState<InfoToast | null>(null);
+  const showInfo = useCallback((toast: InfoToast, ms = 4000) => {
+    setInfoToast(toast);
+    if (ms > 0) window.setTimeout(() => setInfoToast((t) => (t === toast ? null : t)), ms);
+  }, []);
   const {
     loadError,
     setLoadError,
     dismissLoadError,
-    copyPulse,
     copyToast,
     dismissCopyToast,
-    saveAsToast,
-    dismissSaveAsToast,
-    showSaveAsToast,
     copyMarkdown: copyMarkdownCore,
   } = useNotifications();
 
@@ -106,73 +204,113 @@ export function App() {
     source,
     setSource,
     activePath,
-    setActivePath,
     rootPath,
     setRootPath,
+    docId,
     saveStatus,
+    lastSaveError,
     recentFiles,
+    setRecentFiles,
     externalReloadToast,
     dismissExternalReload,
     externalConflict,
     setExternalConflict,
     acceptExternalChange,
     loadFile,
-    loadDemo,
     saveNow,
     saveAs: saveAsCore,
     startNewBuffer,
+    detachFromFile,
+    remapPaths,
     dirty,
     recoveryDraft,
     restoreRecovery,
     dismissRecovery,
+    flushRecovery,
   } = useFileSession({ onLoadError: setLoadError });
 
-  const [sidebarOpen, setSidebarOpen] = usePersistedState<boolean>(
-    STORAGE_KEYS.sidebarOpen,
-    false,
-  );
-  const [sidebarWidth, setSidebarWidth] = usePersistedState<number>(
-    STORAGE_KEYS.sidebarWidth,
-    240,
-  );
+  // refs for async callbacks that must see the latest document (F06, R03)
+  const docIdRef = useRef(docId);
+  docIdRef.current = docId;
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
+  // ---- shared document-switch guard (F04) ------------------------------
+  // every path that replaces the open document goes through here
+  const continueNavigation = useCallback((action: () => void) => {
+    if (dirtyRef.current) {
+      setPendingNavigation({ action });
+      return;
+    }
+    action();
+  }, []);
+
+  const [pinned, setPinned] = usePersistedState<string[]>(STORAGE_KEYS.pinnedNotes, []);
+  const [newNoteFolder, setNewNoteFolder] = useState<string | null>(null);
+
+  const remapAllPaths = useCallback((from: string, to: string) => {
+    remapPaths(from, to);
+    setPinned((list) => list.map((p) => remapPath(p, from, to)));
+    setNewNoteFolder((p) => (p ? remapPath(p, from, to) : p));
+    setNavSection((s) => (s.kind === "folder" ? { kind: "folder", path: remapPath(s.path, from, to) } : s));
+  }, [remapPaths, setPinned]);
+
+  const richRef = useRef<RichEditorHandle | null>(null);
+  const mdEditorRef = useRef<EditorHandle | null>(null);
+  const [pendingReveal, setPendingReveal] = useState<string | null>(null);
+
+  const focusEditorSoon = useCallback(() => {
+    window.requestAnimationFrame(() => richRef.current?.focus());
+  }, []);
+
+  const openNote = useCallback((path: string, match?: string) => {
+    if (samePath(path, activePath)) {
+      if (match) setPendingReveal(match);
+      return;
+    }
+    continueNavigation(() => {
+      void loadFile(path).then((ok) => {
+        if (ok && match) setPendingReveal(match);
+      });
+    });
+  }, [activePath, continueNavigation, loadFile]);
+
+  const newNote = useCallback((folder: string | null = null) => {
+    continueNavigation(() => {
+      setNewNoteFolder(folder);
+      startNewBuffer();
+      setViewMode("write");
+      focusEditorSoon();
+    });
+  }, [continueNavigation, startNewBuffer, focusEditorSoon]);
+
   const {
     treeVersion,
     bumpTree,
-    editingPath,
-    setEditingPath,
-    newEntry,
-    setNewEntry,
     handleMove,
     handleSubmitRename,
     handleSubmitNew,
     handleUndoFileOp,
   } = useFileOps({
     activePath,
-    setActivePath,
-    loadFile,
-    startNewBuffer,
+    dirty,
+    openFileGuarded: (path) => openNote(path),
+    newBufferGuarded: () => newNote(),
+    onPathsRemapped: remapAllPaths,
     onError: setLoadError,
   });
 
-  // refresh the sidebar tree when the open folder changes on disk (e.g. a file
-  // dropped in from outside the app). polls the root dir mtime like the file watcher.
+  // refresh the folder tree when the open folder changes on disk; also on
+  // window focus, since root-mtime polling misses nested changes (R05)
   useFileWatcher(rootPath, bumpTree);
+  useEffect(() => {
+    window.addEventListener("focus", bumpTree);
+    return () => window.removeEventListener("focus", bumpTree);
+  }, [bumpTree]);
 
-  const {
-    paletteOpen,
-    setPaletteOpen,
-    helpOpen,
-    setHelpOpen,
-    aboutOpen,
-    setAboutOpen,
-    welcomeOpen,
-    dismissWelcome,
-    showWelcome,
-    showHelp,
-    showAbout,
-  } = useOverlays();
-
-  const { contextMenu, handleContextMenu, closeContextMenu } = useContextMenu();
+  const { paletteOpen, setPaletteOpen, helpOpen, setHelpOpen, aboutOpen, setAboutOpen, showHelp, showAbout } = useOverlays();
 
   const {
     updateAvail,
@@ -184,114 +322,89 @@ export function App() {
     handleManualUpdateCheck,
   } = useUpdateFlow({ onError: setLoadError });
 
+  // ---- view state --------------------------------------------------------
+  const [viewMode, setViewMode] = useState<ViewMode>("write");
+  const [focusMode, setFocusMode] = useState(false);
+  const [navSection, setNavSection] = useState<NavSection>({ kind: "all" });
+  const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 150);
+  const width = useWindowWidth();
+  const navCollapsed = width < NAV_COLLAPSE_PX;
+  const listCollapsed = width < LIST_COLLAPSE_PX;
+  const [navDrawer, setNavDrawer] = useState(false);
+  const [listDrawer, setListDrawer] = useState(false);
+  useEffect(() => {
+    if (!navCollapsed) setNavDrawer(false);
+    if (!listCollapsed) setListDrawer(false);
+  }, [navCollapsed, listCollapsed]);
+  const showNav = !focusMode && (!navCollapsed || navDrawer);
+  const showList = !focusMode && (!listCollapsed || listDrawer);
+
   const [vimOn, setVimOn] = usePersistedState<boolean>(STORAGE_KEYS.vimMode, false);
+  const [techCounters, setTechCounters] = usePersistedState<boolean>(STORAGE_KEYS.techCounters, false);
+  const [remoteImages, setRemoteImages] = usePersistedState<boolean>(STORAGE_KEYS.remoteImages, false);
   const [vimMode, setVimMode] = useState<VimMode | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
-  const [exportProfile, setExportProfile] = usePersistedState<ExportProfile>(
-    STORAGE_KEYS.exportProfile,
-    "standard",
-  );
+  const [exportProfile, setExportProfile] = usePersistedState<ExportProfile>(STORAGE_KEYS.exportProfile, "standard");
   const {
     value: openrouterKey,
     setValue: setOpenrouterKey,
     ready: secureStorageReady,
     error: secureStorageError,
   } = useSecureSecret(STORAGE_KEYS.openrouterKey);
-  const [openrouterModel, setOpenrouterModel] = usePersistedState<string>(
-    STORAGE_KEYS.openrouterModel,
-    "",
-  );
+  const [openrouterModel, setOpenrouterModel] = usePersistedState<string>(STORAGE_KEYS.openrouterModel, "");
   const [translateTargetLang, setTranslateTargetLang] = usePersistedState<string>(
     STORAGE_KEYS.translateTargetLang,
     LANGUAGES[0]?.code ?? "en",
   );
-  const [proofreadPrompt, setProofreadPrompt] = usePersistedState<string>(
-    STORAGE_KEYS.proofreadPrompt,
-    DEFAULT_PROOFREAD_PROMPT,
-  );
-  const [promptifyPrompt, setPromptifyPrompt] = usePersistedState<string>(
-    STORAGE_KEYS.promptifyPrompt,
-    DEFAULT_PROMPTIFY_PROMPT,
-  );
-  const [translatePrompt, setTranslatePrompt] = usePersistedState<string>(
-    STORAGE_KEYS.translatePrompt,
-    DEFAULT_TRANSLATE_PROMPT,
-  );
+  const [proofreadPrompt, setProofreadPrompt] = usePersistedState<string>(STORAGE_KEYS.proofreadPrompt, DEFAULT_PROOFREAD_PROMPT);
+  const [promptifyPrompt, setPromptifyPrompt] = usePersistedState<string>(STORAGE_KEYS.promptifyPrompt, DEFAULT_PROMPTIFY_PROMPT);
+  const [translatePrompt, setTranslatePrompt] = usePersistedState<string>(STORAGE_KEYS.translatePrompt, DEFAULT_TRANSLATE_PROMPT);
   const [translatedSource, setTranslatedSource] = useState<string | null>(null);
-  const [translating, setTranslating] = useState(false);
-  const [correcting, setCorrecting] = useState(false);
-  const [promptifying, setPromptifying] = useState(false);
-  // the markdown pane (right) gets its own editor instance; markdown toolbar
-  // actions, templates, undo/redo and outline nav target this one (#editor-split)
-  const mdEditorRef = useRef<EditorHandle | null>(null);
-  // the left pane is a tiptap WYSIWYG ("Word-like") editor — formatting renders
-  // visually (color/highlight/bold), never as raw markdown/HTML tags. Surfaced
-  // here so RichToolbar (rendered alongside) can drive its commands.
+  const [previewTranslating, setPreviewTranslating] = useState(false);
+
   const [richEditor, setRichEditor] = useState<TiptapEditor | null>(null);
+  const [richSafe, setRichSafe] = useState(true);
   const [selectionRange, setSelectionRange] = useState<TextRange>({ from: 0, to: 0 });
   const [aiSelectionScope, setAiSelectionScope] = useState(false);
-  const [editorContextMenu, setEditorContextMenu] = useState<{
-    x: number;
-    y: number;
-    range: TextRange;
-    hasSelection: boolean;
-  } | null>(null);
-  // right-click menu for the WYSIWYG (text) pane
-  const [richContextMenu, setRichContextMenu] = useState<{
-    x: number;
-    y: number;
-    hasSelection: boolean;
-  } | null>(null);
+  const [editorContextMenu, setEditorContextMenu] = useState<{ x: number; y: number; range: TextRange; hasSelection: boolean } | null>(null);
+  const [richContextMenu, setRichContextMenu] = useState<{ x: number; y: number; hasSelection: boolean } | null>(null);
+  const [rowMenu, setRowMenu] = useState<{ x: number; y: number; path: string; isDir: boolean } | null>(null);
+  const [docMenu, setDocMenu] = useState<{ x: number; y: number } | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [snapshotsOpen, setSnapshotsOpen] = useState(false);
-  const [snapshots, setSnapshots] = useState<Snapshot[]>(() => listSnapshots());
-  const [aiReview, setAiReview] = useState<{
-    title: string;
-    original: string;
-    next: string;
-    range: TextRange;
-  } | null>(null);
-  const [secretsHidden, setSecretsHidden] = usePersistedState<boolean>(
-    STORAGE_KEYS.secretsHidden,
-    true,
-  );
-  const [editorTextColor, setEditorTextColor] = usePersistedState<string>(
-    STORAGE_KEYS.editorTextColor,
-    "#2563eb",
-  );
-  const [editorHighlightColor, setEditorHighlightColor] = usePersistedState<string>(
-    STORAGE_KEYS.editorHighlightColor,
-    "#fde047",
-  );
-  const [secretHiddenColor, setSecretHiddenColor] = usePersistedState<string>(
-    STORAGE_KEYS.secretHiddenColor,
-    "#7c3aed",
-  );
-  const [secretHiddenBg, setSecretHiddenBg] = usePersistedState<string>(
-    STORAGE_KEYS.secretHiddenBg,
-    "#ede9fe",
-  );
-  const [secretRevealedColor, setSecretRevealedColor] = usePersistedState<string>(
-    STORAGE_KEYS.secretRevealedColor,
-    "#b91c1c",
-  );
-  const [secretRevealedBg, setSecretRevealedBg] = usePersistedState<string>(
-    STORAGE_KEYS.secretRevealedBg,
-    "#fee2e2",
-  );
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [promptState, setPromptState] = useState<PromptState | null>(null);
+
+  const [secretsHidden, setSecretsHidden] = usePersistedState<boolean>(STORAGE_KEYS.secretsHidden, true);
+  const [editorTextColor, setEditorTextColor] = usePersistedState<string>(STORAGE_KEYS.editorTextColor, "#2563eb");
+  const [editorHighlightColor, setEditorHighlightColor] = usePersistedState<string>(STORAGE_KEYS.editorHighlightColor, "#fde047");
+  const [secretHiddenColor, setSecretHiddenColor] = usePersistedState<string>(STORAGE_KEYS.secretHiddenColor, "#7c3aed");
+  const [secretHiddenBg, setSecretHiddenBg] = usePersistedState<string>(STORAGE_KEYS.secretHiddenBg, "#ede9fe");
+  const [secretRevealedColor, setSecretRevealedColor] = usePersistedState<string>(STORAGE_KEYS.secretRevealedColor, "#b91c1c");
+  const [secretRevealedBg, setSecretRevealedBg] = usePersistedState<string>(STORAGE_KEYS.secretRevealedBg, "#fee2e2");
   const toggleSecrets = useCallback(() => setSecretsHidden((v: boolean) => !v), [setSecretsHidden]);
   const [dockMode, setDockMode] = usePersistedState<DockMode>(STORAGE_KEYS.dockMode, "off");
   const [dockOpen, setDockOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [whatsNewVersion, setWhatsNewVersion] = useState<string | null>(null);
 
-  // apply dock mode on mount + whenever the setting changes
+  useEffect(() => {
+    document.documentElement.dataset.platform = IS_MAC ? "mac" : "other";
+  }, []);
+
+  // remote images: read by the rich editor's image node view and the preview
+  useEffect(() => {
+    (window as unknown as { __marknoteRemoteImages?: boolean }).__marknoteRemoteImages = remoteImages;
+  }, [remoteImages]);
+
+  // ---- dock (unchanged behaviour) -----------------------------------------
   useEffect(() => {
     void applyDockMode(dockMode, { open: dockOpen && dockMode !== "off" });
     if (dockMode === "off") setDockOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dockMode]);
 
-  // intercept window close → when docked, collapse to the dock tab instead of quitting
   useEffect(() => {
     if (dockMode === "off") return;
     const win = getCurrentWindow();
@@ -302,10 +415,9 @@ export function App() {
     }).then((un) => {
       unlisten = un;
     });
-    return () => { unlisten?.(); };
+    return () => unlisten?.();
   }, [dockMode]);
 
-  // auto-collapse on focus loss
   useEffect(() => {
     if (dockMode === "off") return;
     const win = getCurrentWindow();
@@ -317,7 +429,7 @@ export function App() {
     }).then((un) => {
       unlisten = un;
     });
-    return () => { unlisten?.(); };
+    return () => unlisten?.();
   }, [dockMode, dockOpen]);
 
   const handleDockTabClick = useCallback(() => {
@@ -325,107 +437,223 @@ export function App() {
     void expandDock(dockMode as Exclude<DockMode, "off">).then(() => setDockOpen(true));
   }, [dockMode]);
 
-  const [whatsNewVersion, setWhatsNewVersion] = useState<string | null>(null);
-
-  const handleToggleSidebar = useCallback(() => {
-    setSidebarOpen((v: boolean) => !v);
-  }, [setSidebarOpen]);
-
-  const exportToPdf = useCallback(async () => {
-    try {
-      await exportPreviewToPdf({ source, activePath, profile: exportProfile });
-    } catch (err) {
-      const message = err instanceof PdfExportError
-        ? err.message
-        : "couldn't export to pdf";
-      console.error("marknote: pdf export failed", err);
-      setLoadError({ message });
-    }
-  }, [source, activePath, exportProfile]);
-
-  const exportToHtml = useCallback(async () => {
-    try {
-      const target = await exportPreviewToHtml({ source, activePath, profile: exportProfile });
-      if (target) showSaveAsToast(`exported ${basename(target)}`);
-    } catch (err) {
-      setLoadError({ message: err instanceof Error ? err.message : "couldn't export html" });
-    }
-  }, [source, activePath, exportProfile, showSaveAsToast, setLoadError]);
-
-
-  const toggleFullscreen = useCallback(async () => {
-    const win = getCurrentWindow();
-    try {
-      const isFs = await win.isFullscreen();
-      await win.setFullscreen(!isFs);
-    } catch (err) {
-      console.error("marknote: fullscreen toggle failed", err);
-    }
-  }, []);
-
-  const [readingMode, setReadingMode] = useState(false);
-  const [editorOnly, setEditorOnly] = useState(true);
-  const [previewOnly, setPreviewOnly] = useState(false);
-  // reading + editor-only + preview-only are mutually exclusive view modes
-  const toggleReadingMode = useCallback(() => {
-    setReadingMode((v) => {
-      const next = !v;
-      if (next) {
-        setEditorOnly(false);
-        setPreviewOnly(false);
-      }
-      return next;
-    });
-  }, []);
-  const exitReadingMode = useCallback(() => setReadingMode(false), []);
-  const toggleEditorOnly = useCallback(() => {
-    setEditorOnly((v) => {
-      const next = !v;
-      if (next) {
-        setReadingMode(false);
-        setPreviewOnly(false);
-      }
-      return next;
-    });
-  }, []);
-  // breadcrumb pane toggles — symmetric show/hide for the two split-view panes
-  const editorVisible = !previewOnly;
-  const previewVisible = !editorOnly;
-  const handleToggleEditor = useCallback(() => {
-    // hiding the editor === previewOnly mode; showing it === clear previewOnly
-    setPreviewOnly((v) => {
-      const next = !v;
-      if (next) {
-        setEditorOnly(false);
-        setReadingMode(false);
-      }
-      return next;
-    });
-  }, []);
-  const handleTogglePreview = useCallback(() => {
-    // hiding preview === editorOnly mode
-    toggleEditorOnly();
-  }, [toggleEditorOnly]);
-
-  // ⌘F only bound while reading — CM owns it in editor mode.
-  const [findOpen, setFindOpen] = useState(false);
-  const [proseEl, setProseEl] = useState<HTMLElement | null>(null);
+  // ---- note index (list + unified search) ---------------------------------
+  const [noteIndex, setNoteIndex] = useState<NoteIndex | null>(null);
+  const [indexLoading, setIndexLoading] = useState(false);
+  const [indexError, setIndexError] = useState<string | null>(null);
+  const [indexVersion, setIndexVersion] = useState(0);
   useEffect(() => {
-    if (!readingMode) {
-      setProseEl(null);
-      setFindOpen(false);
+    if (!rootPath) {
+      setNoteIndex(null);
+      setIndexError(null);
       return;
     }
-    // wait one frame for Preview to render its <article class="mdv-prose">
+    const controller = new AbortController();
+    setIndexLoading(true);
+    setIndexError(null);
+    buildNoteIndex(rootPath, controller.signal)
+      .then((idx) => {
+        if (!controller.signal.aborted) setNoteIndex(idx);
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) setIndexError(`Notlar okunamadı - ${String(err)}`);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIndexLoading(false);
+      });
+    return () => controller.abort();
+  }, [rootPath, treeVersion, indexVersion]);
+
+  // ---- trash ----------------------------------------------------------------
+  const [trashItems, setTrashItems] = useState<TrashItem[]>([]);
+  const refreshTrash = useCallback(() => {
+    listTrash()
+      .then(setTrashItems)
+      .catch((err) => console.warn("marknote: trash list failed", err));
+  }, []);
+  useEffect(() => {
+    refreshTrash();
+  }, [refreshTrash]);
+
+  // ---- history (per document, on disk) -------------------------------------
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[] | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  useEffect(() => {
+    void migrateLegacySnapshots().catch((err) => console.warn("marknote: snapshot migration failed", err));
+  }, []);
+  const refreshHistory = useCallback(async () => {
+    setHistoryError(null);
+    try {
+      setHistoryEntries(await listVersions(activePath));
+    } catch (err) {
+      setHistoryEntries([]);
+      setHistoryError(`Sürümler okunamadı - ${String(err)}`);
+    }
+  }, [activePath]);
+  const openHistory = useCallback(() => {
+    setHistoryEntries(null);
+    setHistoryOpen(true);
+    void refreshHistory();
+  }, [refreshHistory]);
+  const saveCurrentVersion = useCallback(async (label = "Elle kaydedilen sürüm"): Promise<boolean> => {
+    if (!sourceRef.current.trim()) return true;
+    try {
+      await saveVersion(activePath, sourceRef.current, label);
+      return true;
+    } catch (err) {
+      setHistoryError(`Sürüm kaydedilemedi - ${String(err)}`);
+      setLoadError({ message: `Sürüm kaydedilemedi - ${String(err)}` });
+      return false;
+    }
+  }, [activePath, setLoadError]);
+
+  // ---- derived document info ----------------------------------------------
+  const isNew = activePath == null;
+  const docTitle = useMemo(() => {
+    if (activePath) return deriveTitle(source, basename(activePath));
+    return source.trim() ? deriveTitle(source, "Yeni not") : "Yeni not";
+  }, [source, activePath]);
+  const folderLabel = useMemo(() => {
+    if (!activePath) return newNoteFolder ? basename(newNoteFolder) : null;
+    const dir = dirname(activePath);
+    if (rootPath && isSameOrChildPath(dir, rootPath)) return relativeTo(rootPath, dir) || basename(rootPath);
+    return basename(dir);
+  }, [activePath, rootPath, newNoteFolder]);
+
+  // keep the index entry of the open note fresh after a save
+  const lastIndexedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (saveStatus !== "saved" || !activePath || !rootPath || !isSameOrChildPath(activePath, rootPath)) return;
+    const key = `${activePath}:${sourceRef.current.length}`;
+    if (lastIndexedRef.current === key) return;
+    lastIndexedRef.current = key;
+    setNoteIndex((idx) => (idx ? upsertNote(idx, activePath, relativeTo(rootPath, activePath), sourceRef.current) : idx));
+  }, [saveStatus, activePath, rootPath]);
+
+  // ---- saving ----------------------------------------------------------------
+  const saveAs = useCallback(async (): Promise<string | null> => {
+    const folder = newNoteFolder ?? (navSection.kind === "folder" ? navSection.path : null) ?? rootPath;
+    const suggested = activePath ?? (folder ? joinPath(folder, fileNameFromTitle(docTitle)) : fileNameFromTitle(docTitle));
+    const target = await saveAsCore(suggested);
+    if (!target) return null;
+    setNewNoteFolder(null);
+    bumpTree();
+    showInfo({ message: `${basename(target)} kaydedildi` }, 2400);
+    return target;
+  }, [newNoteFolder, navSection, rootPath, activePath, docTitle, saveAsCore, bumpTree, showInfo]);
+
+  const saveCurrent = useCallback(async (): Promise<boolean> => {
+    if (activePath) {
+      if (!dirtyRef.current && saveStatus !== "error") return true;
+      return saveNow(activePath, sourceRef.current);
+    }
+    return (await saveAs()) != null;
+  }, [activePath, saveStatus, saveNow, saveAs]);
+
+  const discardAndContinue = useCallback(() => {
+    const pending = pendingNavigation;
+    setPendingNavigation(null);
+    pending?.action();
+  }, [pendingNavigation]);
+
+  const saveAndContinue = useCallback(async () => {
+    if (!pendingNavigation || navigationSaving) return;
+    setNavigationSaving(true);
+    const saved = await saveCurrent();
+    setNavigationSaving(false);
+    // a failed or cancelled save keeps the current note open (F04)
+    if (!saved) return;
+    const pending = pendingNavigation;
+    setPendingNavigation(null);
+    pending.action();
+  }, [pendingNavigation, navigationSaving, saveCurrent]);
+
+  const cancelNavigation = useCallback(() => {
+    if (pendingNavigation?.quit) void invoke("cancel_quit").catch(() => undefined);
+    setPendingNavigation(null);
+  }, [pendingNavigation]);
+
+  // ---- open / folders ------------------------------------------------------
+  const handleOpenFolder = useCallback(async () => {
+    const folder = await pickFolder();
+    if (folder) {
+      setRootPath(folder);
+      setNavSection({ kind: "all" });
+    }
+  }, [setRootPath]);
+
+  const handleOpenFile = useCallback(async () => {
+    const file = await pickMarkdownFile();
+    if (file) openNote(file);
+  }, [openNote]);
+
+  // file passed on the command line (Windows double click / "Open with") (R04)
+  useEffect(() => {
+    void invoke<string | null>("take_launch_file")
+      .then((path) => {
+        if (path) openNote(path);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<string>("marknote:open-file", (event) => {
+      const path = event.payload;
+      if (typeof path === "string" && path.length > 0) openNote(path);
+    }).then((un) => {
+      unlisten = un;
+    });
+    return () => unlisten?.();
+  }, [openNote]);
+
+  // tray "Çık" (R03): flush the recovery draft, then ask about unsaved work
+  const flushRecoveryRef = useRef(flushRecovery);
+  flushRecoveryRef.current = flushRecovery;
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen("marknote:quit-requested", () => {
+      void (async () => {
+        await flushRecoveryRef.current();
+        if (!dirtyRef.current) {
+          void invoke("quit_app");
+          return;
+        }
+        setPendingNavigation({ action: () => void invoke("quit_app"), quit: true });
+      })();
+    }).then((un) => {
+      unlisten = un;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  // ---- reveal a search match after opening ----------------------------------
+  useEffect(() => {
+    if (!pendingReveal) return;
+    const match = pendingReveal;
     const id = window.requestAnimationFrame(() => {
-      setProseEl(document.querySelector<HTMLElement>(".mdv-prose"));
+      setPendingReveal(null);
+      if (viewMode === "write" && richRef.current?.revealText(match)) return;
+      const idx = sourceRef.current.toLocaleLowerCase("tr").indexOf(match.toLocaleLowerCase("tr"));
+      if (idx >= 0) {
+        if (viewMode === "write" || viewMode === "read") setViewMode("markdown");
+        window.requestAnimationFrame(() => mdEditorRef.current?.selectRange({ from: idx, to: idx + match.length }));
+      }
     });
     return () => window.cancelAnimationFrame(id);
-  }, [readingMode]);
+  }, [pendingReveal, docId, viewMode]);
 
-  const copyMarkdown = useCallback(() => copyMarkdownCore(source), [copyMarkdownCore, source]);
+  // ---- misc effects ----------------------------------------------------------
+  useEffect(() => {
+    setTranslatedSource(null);
+  }, [docId]);
 
-  const debouncedPreview = useDebouncedValue(source, 50);
+  useEffect(() => {
+    if (secureStorageError) setLoadError({ message: secureStorageError });
+  }, [secureStorageError, setLoadError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -433,9 +661,7 @@ export function App() {
       .then((version) => {
         if (cancelled) return;
         const lastSeen = window.localStorage.getItem(STORAGE_KEYS.lastSeenVersion);
-        if (lastSeen && lastSeen !== version) {
-          setWhatsNewVersion(version);
-        }
+        if (lastSeen && lastSeen !== version) setWhatsNewVersion(version);
         window.localStorage.setItem(STORAGE_KEYS.lastSeenVersion, version);
       })
       .catch((err) => console.warn("marknote: version check failed", err));
@@ -444,26 +670,37 @@ export function App() {
     };
   }, []);
 
-  // proportional editor <-> preview scroll sync; rebinds when active file changes
-  useSyncScroll({ rebindKey: activePath ?? "untitled" });
+  useSyncScroll({ rebindKey: `${activePath ?? "new"}:${viewMode}` });
+
+  const [findOpen, setFindOpen] = useState(false);
+  const [proseEl, setProseEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (viewMode !== "read") {
+      setProseEl(null);
+      setFindOpen(false);
+      return;
+    }
+    const id = window.requestAnimationFrame(() => {
+      setProseEl(document.querySelector<HTMLElement>(".mdv-doc-read .mdv-prose"));
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [viewMode]);
+
+  const copyMarkdown = useCallback(() => copyMarkdownCore(sourceRef.current), [copyMarkdownCore]);
+  const debouncedPreview = useDebouncedValue(source, 50);
 
   const { words, minutes, docTokens } = useMemo(() => {
     const trimmed = source.trim();
     const w = trimmed.length ? trimmed.split(/\s+/).length : 0;
-    const m = Math.max(1, Math.round(w / 220));
-    const t = estimateTokens(source);
-    return { words: w, minutes: m, docTokens: t };
-  }, [source]);
+    return { words: w, minutes: Math.max(1, Math.round(w / 220)), docTokens: techCounters ? estimateTokens(source) : 0 };
+  }, [source, techCounters]);
 
-  const headings = useMemo(() => extractHeadings(source), [source]);
-  const markdownIssues = useMemo(() => lintMarkdown(source), [source]);
+  const headings = useMemo(() => (inspectorOpen ? extractHeadings(source) : []), [source, inspectorOpen]);
+  const markdownIssues = useMemo(() => (inspectorOpen ? lintMarkdown(source) : []), [source, inspectorOpen]);
   const hasTextSelection = selectionRange.from !== selectionRange.to;
-  const selectionCharCount = hasTextSelection ? Math.abs(selectionRange.to - selectionRange.from) : 0;
 
   const handleEditorSelectionChange = useCallback((range: TextRange) => {
-    setSelectionRange((prev) => (
-      prev.from === range.from && prev.to === range.to ? prev : range
-    ));
+    setSelectionRange((prev) => (prev.from === range.from && prev.to === range.to ? prev : range));
     setAiSelectionScope(range.from !== range.to);
   }, []);
 
@@ -477,9 +714,8 @@ export function App() {
     mdEditorRef.current?.replaceRange(edit.range, edit.insert, edit.selection);
   }, [editorHighlightColor, editorTextColor, source]);
 
-  const handleRichEditorReady = useCallback((editor: TiptapEditor | null) => {
-    if (editor) setRichEditor(editor);
-  }, []);
+  // null on teardown: the toolbar must never hold a destroyed editor (F02)
+  const handleRichEditorReady = useCallback((editor: TiptapEditor | null) => setRichEditor(editor), []);
 
   const appStyle = useMemo(() => ({
     "--mdv-user-text-color": editorTextColor,
@@ -488,14 +724,7 @@ export function App() {
     "--mdv-secret-hidden-bg": secretHiddenBg,
     "--mdv-secret-revealed-color": secretRevealedColor,
     "--mdv-secret-revealed-bg": secretRevealedBg,
-  }) as CSSProperties, [
-    editorTextColor,
-    editorHighlightColor,
-    secretHiddenColor,
-    secretHiddenBg,
-    secretRevealedColor,
-    secretRevealedBg,
-  ]);
+  }) as CSSProperties, [editorTextColor, editorHighlightColor, secretHiddenColor, secretHiddenBg, secretRevealedColor, secretRevealedBg]);
 
   const handleInsertTemplate = useCallback((kind: "note" | "readme" | "prompt") => {
     const selection = mdEditorRef.current?.getSelection() ?? { from: source.length, to: source.length };
@@ -504,258 +733,459 @@ export function App() {
     mdEditorRef.current?.replaceRange(edit.range, edit.insert, edit.selection);
   }, [source]);
 
-  const handleUndoEdit = useCallback(() => {
-    setTranslatedSource(null);
-    mdEditorRef.current?.undo();
-  }, []);
-
-  const handleRedoEdit = useCallback(() => {
-    setTranslatedSource(null);
-    mdEditorRef.current?.redo();
-  }, []);
-
-  const refreshSnapshots = useCallback(() => setSnapshots(listSnapshots()), []);
-
-  const handleCreateSnapshot = useCallback((label = "manual snapshot") => {
-    createSnapshot(source, activePath, label);
-    refreshSnapshots();
-  }, [source, activePath, refreshSnapshots]);
-
-  const handleRestoreSnapshot = useCallback((snapshot: Snapshot) => {
-    createSnapshot(source, activePath, "before restore");
-    setSource(snapshot.source);
-    setSnapshotsOpen(false);
-    refreshSnapshots();
-    window.requestAnimationFrame(() => mdEditorRef.current?.goTo(0));
-  }, [source, activePath, setSource, refreshSnapshots]);
-
-  const handleDeleteSnapshot = useCallback((id: string) => {
-    deleteSnapshot(id);
-    refreshSnapshots();
-  }, [refreshSnapshots]);
-
-  const aiTargetRange = useCallback((): TextRange => {
-    if (hasTextSelection && aiSelectionScope) return selectionRange;
-    return { from: 0, to: source.length };
-  }, [aiSelectionScope, hasTextSelection, selectionRange, source.length]);
-
-  // wraps useFileSession's saveAs to bump the sidebar tree + show landing toast.
-  const saveAs = useCallback(async () => {
-    const target = await saveAsCore();
-    if (!target) return null;
-    bumpTree();
-    showSaveAsToast(`saved to ${basename(target)}`);
-    return target;
-  }, [saveAsCore, bumpTree, showSaveAsToast]);
-
-  const continueNavigation = useCallback((action: () => void) => {
-    if (dirty) {
-      setPendingNavigation(() => action);
+  // ---- history restore -------------------------------------------------------
+  const handleRestoreVersion = useCallback(async (entry: HistoryEntry) => {
+    // never apply another note's version to this one (F11)
+    if (!samePath(entry.path, activePath) && !(entry.path == null && activePath == null)) {
+      setHistoryError("Bu sürüm başka bir nota ait; uygulanmadı.");
       return;
     }
-    action();
-  }, [dirty]);
-
-  const discardAndContinue = useCallback(() => {
-    const action = pendingNavigation;
-    setPendingNavigation(null);
-    action?.();
-  }, [pendingNavigation]);
-
-  const saveAndContinue = useCallback(async () => {
-    if (!pendingNavigation || navigationSaving) return;
-    setNavigationSaving(true);
-    const saved = activePath
-      ? await saveNow(activePath, source)
-      : (await saveAs()) != null;
-    setNavigationSaving(false);
-    if (!saved) return;
-    const action = pendingNavigation;
-    setPendingNavigation(null);
-    action();
-  }, [pendingNavigation, navigationSaving, activePath, saveNow, source, saveAs]);
-
-  const handleOpenFolder = useCallback(async () => {
-    const folder = await pickFolder();
-    if (folder) {
-      setRootPath(folder);
-      setSidebarOpen(true);
+    setHistoryBusy(true);
+    try {
+      const full = await readVersion(entry.id);
+      // keep what is on screen now before replacing it
+      if (!(await saveCurrentVersion("Geri yüklemeden önce"))) return;
+      setSource(full.source);
+      setHistoryOpen(false);
+      showInfo({ message: `"${entry.label}" sürümü geri yüklendi. Kalıcı olması için kaydedin.` });
+    } catch (err) {
+      setHistoryError(`Sürüm geri yüklenemedi - ${String(err)}`);
+    } finally {
+      setHistoryBusy(false);
     }
-  }, [setRootPath, setSidebarOpen]);
+  }, [activePath, saveCurrentVersion, setSource, showInfo]);
 
-  const handleOpenFile = useCallback(async () => {
-    const file = await pickMarkdownFile();
-    if (file) {
-      continueNavigation(() => void loadFile(file));
+  const handleDeleteVersion = useCallback(async (entry: HistoryEntry) => {
+    setHistoryBusy(true);
+    try {
+      await deleteVersion(entry.id);
+      await refreshHistory();
+    } catch (err) {
+      setHistoryError(`Sürüm silinemedi - ${String(err)}`);
+    } finally {
+      setHistoryBusy(false);
     }
-  }, [loadFile, continueNavigation]);
+  }, [refreshHistory]);
 
-  const handleNewFile = useCallback(() => {
-    continueNavigation(() => startNewBuffer());
-  }, [startNewBuffer, continueNavigation]);
-
-  // revert when source / active file changes so we never show stale translation
-  useEffect(() => {
-    setTranslatedSource(null);
-  }, [activePath]);
-
-  useEffect(() => {
-    if (secureStorageError) setLoadError({ message: secureStorageError });
-  }, [secureStorageError, setLoadError]);
-
+  // ---- AI (F06 + privacy) ----------------------------------------------------
   const translateReady = secureStorageReady && openrouterKey.length > 0 && openrouterModel.length > 0;
   const aiTooltip = !openrouterKey
-    ? "add an openrouter api key in settings"
+    ? "Ayarlar'dan OpenRouter API anahtarı ekleyin"
     : !openrouterModel
-      ? "pick a model in settings"
+      ? "Ayarlar'dan bir model seçin"
       : undefined;
-  const translateTooltip = aiTooltip;
+  const [aiJob, setAiJob] = useState<AiJob | null>(null);
+  const [aiReview, setAiReview] = useState<AiReview | null>(null);
+  const [secretPrompt, setSecretPrompt] = useState<{ kind: AiKind; range: TextRange; text: string; count: number } | null>(null);
 
-  const handleTranslate = useCallback(async () => {
-    if (!translateReady || translating) return;
-    setTranslating(true);
+  const aiTargetRange = useCallback((): TextRange => {
+    if (hasTextSelection && aiSelectionScope && viewMode !== "write") return selectionRange;
+    return { from: 0, to: source.length };
+  }, [aiSelectionScope, hasTextSelection, selectionRange, source.length, viewMode]);
+
+  const targetLanguage = LANGUAGES.find((lang) => lang.code === translateTargetLang)?.label ?? translateTargetLang;
+
+  const runAi = useCallback(async (kind: AiKind, range: TextRange, original: string, mask: boolean) => {
+    const masked = mask ? maskSecretsInText(original) : null;
+    const payload = masked ? masked.text : original;
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, AI_TIMEOUT_MS);
+    const label = kind === "proofread" ? "AI düzeltiyor…" : kind === "promptify" ? "Prompta dönüştürülüyor…" : "Çevriliyor…";
+    const job: AiJob = { kind, label, docId: docIdRef.current, controller };
+    setAiJob(job);
     try {
-      const translated = await translateMarkdown({
-        apiKey: openrouterKey,
-        model: openrouterModel,
-        targetLang: translateTargetLang,
-        source,
-        systemPrompt: translatePrompt,
-      });
-      setTranslatedSource(translated);
-    } catch (err) {
-      console.error("marknote: translate failed", err);
-      setLoadError({ message: `translate failed — ${String(err)}` });
-    } finally {
-      setTranslating(false);
-    }
-  }, [translateReady, translating, openrouterKey, openrouterModel, translateTargetLang, translatePrompt, source, setLoadError]);
-
-  const handleRevertTranslation = useCallback(() => setTranslatedSource(null), []);
-
-  const handleCorrectMarkdown = useCallback(async (rangeOverride?: TextRange) => {
-    if (!translateReady || correcting || !source.trim()) return;
-    const range = rangeOverride ?? aiTargetRange();
-    const target = source.slice(range.from, range.to);
-    if (!target.trim()) return;
-    setCorrecting(true);
-    try {
-      const corrected = await proofreadMarkdown({
-        apiKey: openrouterKey,
-        model: openrouterModel,
-        source: target,
-        systemPrompt: proofreadPrompt,
-      });
-      setTranslatedSource(null);
-      setAiReview({
-        title: "ai proofread",
-        original: target,
-        next: corrected,
-        range,
-      });
-    } catch (err) {
-      console.error("marknote: proofreading failed", err);
-      setLoadError({ message: `proofreading failed - ${String(err)}` });
-    } finally {
-      setCorrecting(false);
-    }
-  }, [translateReady, correcting, source, aiTargetRange, openrouterKey, openrouterModel, proofreadPrompt, setLoadError]);
-
-  const handlePromptifyMarkdown = useCallback(async (rangeOverride?: TextRange) => {
-    if (!translateReady || promptifying || !source.trim()) return;
-    const range = rangeOverride ?? aiTargetRange();
-    const target = source.slice(range.from, range.to);
-    if (!target.trim()) return;
-    setPromptifying(true);
-    try {
-      const prompt = await promptifyMarkdown({
-        apiKey: openrouterKey,
-        model: openrouterModel,
-        source: target,
-        systemPrompt: promptifyPrompt,
-      });
-      setTranslatedSource(null);
-      setAiReview({
-        title: "ai prompt",
-        original: target,
-        next: prompt,
-        range,
-      });
-    } catch (err) {
-      console.error("marknote: promptify failed", err);
-      setLoadError({ message: `promptify failed - ${String(err)}` });
-    } finally {
-      setPromptifying(false);
-    }
-  }, [translateReady, promptifying, source, aiTargetRange, openrouterKey, openrouterModel, promptifyPrompt, setLoadError]);
-
-  const handleTranslateMarkdown = useCallback(async (rangeOverride?: TextRange) => {
-    if (!translateReady || translating || !source.trim()) return;
-    const range = rangeOverride ?? aiTargetRange();
-    const target = source.slice(range.from, range.to);
-    if (!target.trim()) return;
-    const targetLanguage = LANGUAGES.find((lang) => lang.code === translateTargetLang)?.label ?? translateTargetLang;
-    setTranslating(true);
-    try {
-      const translated = await translateMarkdown({
-        apiKey: openrouterKey,
-        model: openrouterModel,
-        targetLang: translateTargetLang,
-        source: target,
-        systemPrompt: translatePrompt,
-      });
-      if (translated.trim() === target.trim()) {
-        setLoadError({
-          message: `translate returned no changes - target language is ${targetLanguage}; pick another language in settings if needed`,
-        });
+      const common = { apiKey: openrouterKey, model: openrouterModel, source: payload, signal: controller.signal };
+      let result: string;
+      if (kind === "proofread") result = await proofreadMarkdown({ ...common, systemPrompt: proofreadPrompt });
+      else if (kind === "promptify") result = await promptifyMarkdown({ ...common, systemPrompt: promptifyPrompt });
+      else result = await translateMarkdown({ ...common, targetLang: translateTargetLang, systemPrompt: translatePrompt });
+      if (masked) result = masked.restore(result);
+      // the user moved to another note while waiting: never apply there
+      if (job.docId !== docIdRef.current) {
+        showInfo({ message: "AI sonucu başka bir nota ait olduğu için gösterilmedi." });
         return;
       }
-      setTranslatedSource(null);
-      setAiReview({
-        title: `ai translate to ${targetLanguage}`,
-        original: target,
-        next: translated,
-        range,
-      });
+      if (kind === "translate" && result.trim() === original.trim()) {
+        setLoadError({ message: `Çeviri değişiklik üretmedi - hedef dil ${targetLanguage}; gerekirse Ayarlar'dan değiştirin.` });
+        return;
+      }
+      const title = kind === "proofread" ? "AI düzeltme" : kind === "promptify" ? "AI prompt" : `AI çeviri (${targetLanguage})`;
+      setAiReview({ title, original, next: result, range, docId: job.docId });
     } catch (err) {
-      console.error("marknote: translate failed", err);
-      setLoadError({ message: `translate failed - ${String(err)}` });
+      if (controller.signal.aborted) {
+        showInfo({ message: timedOut ? "AI isteği zaman aşımına uğradı (90 sn). Tekrar deneyin." : "AI isteği iptal edildi." });
+      } else {
+        setLoadError({ message: `AI isteği başarısız - ${String(err)}` });
+      }
     } finally {
-      setTranslating(false);
+      window.clearTimeout(timer);
+      setAiJob((current) => (current === job ? null : current));
     }
-  }, [
-    translateReady,
-    translating,
-    source,
-    aiTargetRange,
-    openrouterKey,
-    openrouterModel,
-    translateTargetLang,
-    translatePrompt,
-    setLoadError,
-  ]);
+  }, [openrouterKey, openrouterModel, proofreadPrompt, promptifyPrompt, translatePrompt, translateTargetLang, targetLanguage, setLoadError, showInfo]);
+
+  const startAi = useCallback((kind: AiKind, rangeOverride?: TextRange) => {
+    if (!translateReady) {
+      setLoadError({ message: aiTooltip ?? "AI ayarlı değil" });
+      return;
+    }
+    if (aiJob) return;
+    const range = rangeOverride ?? aiTargetRange();
+    const text = source.slice(range.from, range.to);
+    if (!text.trim()) return;
+    if (text.length > AI_MAX_CHARS) {
+      setLoadError({ message: `AI için metin çok uzun (${text.length.toLocaleString("tr-TR")} karakter). Markdown görünümünde bir bölüm seçin.` });
+      return;
+    }
+    const masked = maskSecretsInText(text);
+    if (masked.count > 0) {
+      setSecretPrompt({ kind, range, text, count: masked.count });
+      return;
+    }
+    void runAi(kind, range, text, false);
+  }, [translateReady, aiTooltip, aiJob, aiTargetRange, source, runAi, setLoadError]);
 
   const applyAiReview = useCallback(() => {
-    if (!aiReview) return;
-    const { range, next } = aiReview;
-    createSnapshot(source, activePath, `before ${aiReview.title}`);
-    refreshSnapshots();
-    const nextSource = `${source.slice(0, range.from)}${next}${source.slice(range.to)}`;
-    setSource(nextSource);
+    const review = aiReview;
+    if (!review) return;
     setAiReview(null);
-    window.requestAnimationFrame(() => mdEditorRef.current?.goTo(range.from + next.length));
-  }, [aiReview, source, activePath, refreshSnapshots, setSource]);
+    if (review.docId !== docIdRef.current) {
+      setLoadError({ message: "AI sonucu başka bir nota ait; uygulanmadı." });
+      return;
+    }
+    const current = sourceRef.current;
+    let range = review.range;
+    if (current.slice(range.from, range.to) !== review.original) {
+      // text changed while waiting: re-anchor only on an unambiguous match
+      const first = current.indexOf(review.original);
+      const second = first >= 0 ? current.indexOf(review.original, first + 1) : -1;
+      if (first < 0 || second >= 0) {
+        setLoadError({ message: "Metin AI isteğinden sonra değişti; sonuç güvenle uygulanamıyor. Lütfen yeniden çalıştırın." });
+        return;
+      }
+      range = { from: first, to: first + review.original.length };
+    }
+    void saveVersion(activePath, current, `${review.title} öncesi`).catch((err) => console.warn("marknote: pre-ai version failed", err));
+    setTranslatedSource(null);
+    setSource(`${current.slice(0, range.from)}${review.next}${current.slice(range.to)}`);
+  }, [aiReview, activePath, setSource, setLoadError]);
 
-  const previewSource = translatedSource ?? debouncedPreview;
-  const editorAiBusyLabel = correcting
-    ? "ai proofread..."
-    : promptifying
-      ? "turning into prompt..."
-      : translating
-        ? "translating..."
-        : null;
+  const handlePreviewTranslate = useCallback(async () => {
+    if (!translateReady || previewTranslating) return;
+    const startDoc = docIdRef.current;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+    setPreviewTranslating(true);
+    try {
+      const masked = maskSecretsInText(sourceRef.current);
+      const translated = await translateMarkdown({
+        apiKey: openrouterKey,
+        model: openrouterModel,
+        targetLang: translateTargetLang,
+        source: masked.text,
+        systemPrompt: translatePrompt,
+        signal: controller.signal,
+      });
+      if (startDoc === docIdRef.current) setTranslatedSource(masked.restore(translated));
+    } catch (err) {
+      if (!controller.signal.aborted) setLoadError({ message: `Çeviri başarısız - ${String(err)}` });
+    } finally {
+      window.clearTimeout(timer);
+      setPreviewTranslating(false);
+    }
+  }, [translateReady, previewTranslating, openrouterKey, openrouterModel, translateTargetLang, translatePrompt, setLoadError]);
 
-  const closeEditorContextMenu = useCallback(() => setEditorContextMenu(null), []);
+  // ---- trash flows (F08) -------------------------------------------------------
+  const trashPath = useCallback(async (path: string, isDir: boolean) => {
+    try {
+      const item = await moveToTrash(path);
+      if (isSameOrChildPath(activePath, path)) {
+        // keep unsaved text as a new note; a clean note simply closes
+        if (dirtyRef.current) detachFromFile();
+        else startNewBuffer();
+      }
+      setPinned((list) => list.filter((p) => !isSameOrChildPath(p, path)));
+      setRecentFiles((list) => list.filter((p) => !isSameOrChildPath(p, path)));
+      setNavSection((s) => (s.kind === "folder" && isSameOrChildPath(s.path, path) ? { kind: "all" } : s));
+      bumpTree();
+      refreshTrash();
+      showInfo({
+        message: `${isDir ? "Klasör" : "Not"} çöp kutusuna taşındı: ${item.name}`,
+        action: {
+          label: "Geri al",
+          onClick: () => {
+            void restoreFromTrash(item.id)
+              .then(() => {
+                bumpTree();
+                refreshTrash();
+              })
+              .catch((err) => setLoadError({ message: `Geri alınamadı - ${String(err)}` }));
+          },
+        },
+      }, 6000);
+    } catch (err) {
+      setLoadError({ message: `Çöp kutusuna taşınamadı - ${String(err)}` });
+    }
+  }, [activePath, detachFromFile, startNewBuffer, setPinned, setRecentFiles, bumpTree, refreshTrash, showInfo, setLoadError]);
+
+  const requestTrash = useCallback((path: string, isDir: boolean) => {
+    if (!isDir) {
+      void trashPath(path, false);
+      return;
+    }
+    const inside = noteIndex?.notes.filter((n) => isSameOrChildPath(n.path, path)).length ?? 0;
+    setConfirmState({
+      title: `"${basename(path)}" klasörü çöp kutusuna taşınsın mı?`,
+      body: `Klasör, içindeki ${inside} not ve tüm alt klasörleriyle birlikte çöp kutusuna taşınır. Çöp kutusundan geri yükleyebilirsiniz.`,
+      confirmLabel: "Çöp kutusuna taşı",
+      destructive: true,
+      onConfirm: () => void trashPath(path, true),
+    });
+  }, [noteIndex, trashPath]);
+
+  const handleRestoreTrash = useCallback(async (item: TrashItem) => {
+    try {
+      const restored = await restoreFromTrash(item.id);
+      bumpTree();
+      refreshTrash();
+      const renamed = basename(restored) !== item.name;
+      showInfo({
+        message: renamed
+          ? `Aynı adda dosya olduğu için "${basename(restored)}" olarak geri yüklendi.`
+          : `${item.name} geri yüklendi.`,
+        action: item.isDir ? undefined : { label: "Aç", onClick: () => openNote(restored) },
+      }, 6000);
+    } catch (err) {
+      setLoadError({ message: `Geri yüklenemedi - ${String(err)}` });
+    }
+  }, [bumpTree, refreshTrash, showInfo, openNote, setLoadError]);
+
+  const handleDeleteForever = useCallback((item: TrashItem) => {
+    setConfirmState({
+      title: `"${item.name}" kalıcı olarak silinsin mi?`,
+      body: "Bu işlem geri alınamaz.",
+      confirmLabel: "Kalıcı olarak sil",
+      destructive: true,
+      onConfirm: () => {
+        void deleteFromTrash(item.id)
+          .then(refreshTrash)
+          .catch((err) => setLoadError({ message: `Silinemedi - ${String(err)}` }));
+      },
+    });
+  }, [refreshTrash, setLoadError]);
+
+  const handleEmptyTrash = useCallback(() => {
+    setConfirmState({
+      title: "Çöp kutusu boşaltılsın mı?",
+      body: `${trashItems.length} öğe kalıcı olarak silinecek. Bu işlem geri alınamaz.`,
+      confirmLabel: "Çöp kutusunu boşalt",
+      destructive: true,
+      onConfirm: () => {
+        void emptyTrash()
+          .then(refreshTrash)
+          .catch((err) => setLoadError({ message: `Boşaltılamadı - ${String(err)}` }));
+      },
+    });
+  }, [trashItems.length, refreshTrash, setLoadError]);
+
+  const togglePin = useCallback((path: string) => {
+    setPinned((list) => (list.some((p) => samePath(p, path)) ? list.filter((p) => !samePath(p, path)) : [path, ...list]));
+  }, [setPinned]);
+
+  const requestRename = useCallback((path: string) => {
+    setPromptState({
+      title: "Yeniden adlandır",
+      label: "Yeni ad",
+      initialValue: basename(path),
+      confirmLabel: "Yeniden adlandır",
+      onSubmit: (name) => void handleSubmitRename(path, name),
+    });
+  }, [handleSubmitRename]);
+
+  const requestNewFolder = useCallback((parent: string) => {
+    setPromptState({
+      title: "Yeni klasör",
+      label: "Klasör adı",
+      initialValue: "",
+      confirmLabel: "Oluştur",
+      onSubmit: (name) => void handleSubmitNew(parent, "folder", name),
+    });
+  }, [handleSubmitNew]);
+
+  // ---- note list data ------------------------------------------------------------
+  const listItems = useMemo<NoteListItem[]>(() => {
+    const notes = noteIndex?.notes ?? [];
+    const byPath = new Map(notes.map((n) => [n.path, n]));
+    const toItem = (path: string): NoteListItem => {
+      const n = byPath.get(path) ?? notes.find((x) => samePath(x.path, path));
+      const dir = relativeTo(rootPath, dirname(path));
+      return {
+        path,
+        title: n?.title ?? basename(path).replace(/\.(md|markdown|mdx|txt)$/i, ""),
+        excerpt: n?.excerpt ?? (rootPath && isSameOrChildPath(path, rootPath) ? "" : dirname(path)),
+        mtime: n?.mtime ?? null,
+        folder: n ? (dir === path ? "" : dir.replace(/\//g, " / ")) : "",
+        pinned: pinned.some((p) => samePath(p, path)),
+      };
+    };
+    if (navSection.kind === "recent") return recentFiles.map(toItem);
+    if (navSection.kind === "pinned") return pinned.map(toItem);
+    const scope = navSection.kind === "folder" ? notes.filter((n) => isSameOrChildPath(n.path, navSection.path)) : notes;
+    return [...scope]
+      .sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0))
+      .map((n) => toItem(n.path))
+      .sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  }, [noteIndex, navSection, recentFiles, pinned, rootPath]);
+
+  const searchResult = useMemo(() => {
+    if (!debouncedQuery.trim() || !noteIndex) return null;
+    const scope = navSection.kind === "folder" ? noteIndex.notes.filter((n) => isSameOrChildPath(n.path, navSection.path)) : noteIndex.notes;
+    return searchNotes(scope, debouncedQuery);
+  }, [debouncedQuery, noteIndex, navSection]);
+
+  const listNotices = useMemo(() => {
+    const out: string[] = [];
+    if (noteIndex?.truncatedFiles) out.push("Klasördeki ilk 5000 dosya gösteriliyor");
+    if (noteIndex && noteIndex.problems.length) out.push(`${noteIndex.problems.length} dosya okunamadı`);
+    if (searchResult?.limited) out.push("İlk 200 sonuç gösteriliyor");
+    if (searchResult && searchResult.skippedLarge) out.push(`${searchResult.skippedLarge} büyük dosyanın içeriği aranmadı`);
+    return out;
+  }, [noteIndex, searchResult]);
+
+  const listHeading =
+    navSection.kind === "all" ? "Tüm notlar"
+      : navSection.kind === "recent" ? "Son açılanlar"
+        : navSection.kind === "pinned" ? "Sabitlenenler"
+          : navSection.kind === "trash" ? "Çöp kutusu"
+            : basename(navSection.path);
+  const listEmptyText =
+    navSection.kind === "pinned" ? "Sabitlenmiş not yok. Bir notu sağ tıklayıp Sabitle'yi seçin."
+      : navSection.kind === "recent" ? "Henüz açılmış not yok."
+        : navSection.kind === "folder" ? "Bu klasörde not yok."
+          : "Bu klasörde henüz not yok. Yeni not ile başlayın.";
+
+  const selectSection = useCallback((section: NavSection) => {
+    setNavSection(section);
+    setQuery("");
+    if (section.kind === "trash") refreshTrash();
+    if (navCollapsed) setNavDrawer(false);
+    if (listCollapsed) setListDrawer(true);
+  }, [refreshTrash, navCollapsed, listCollapsed]);
+
+  const selectFromList = useCallback((path: string, match?: string) => {
+    openNote(path, match);
+    if (listCollapsed) setListDrawer(false);
+  }, [openNote, listCollapsed]);
+
+  const focusSearch = useCallback(() => {
+    setFocusMode(false);
+    if (listCollapsed) setListDrawer(true);
+    if (navSection.kind === "trash") setNavSection({ kind: "all" });
+    window.requestAnimationFrame(() => document.getElementById("mdv-note-search")?.focus());
+  }, [listCollapsed, navSection.kind]);
+
+  // ---- context menus -----------------------------------------------------------------
+  const handleRowContextMenu = useCallback((e: ReactMouseEvent, path: string) => {
+    setRowMenu({ x: e.clientX, y: e.clientY, path, isDir: false });
+  }, []);
+  const handleFolderContextMenu = useCallback((e: ReactMouseEvent, entry: FileEntry) => {
+    setRowMenu({ x: e.clientX, y: e.clientY, path: entry.path, isDir: entry.isDir });
+  }, []);
+
+  const rowMenuItems = useMemo<ContextMenuItem[]>(() => {
+    if (!rowMenu) return [];
+    const { path, isDir } = rowMenu;
+    if (isDir) {
+      return [
+        { label: "Bu klasörde yeni not", icon: PenLine, onSelect: () => newNote(path) },
+        { label: "Yeni alt klasör", icon: FolderPlus, onSelect: () => requestNewFolder(path) },
+        { label: "Yeniden adlandır", onSelect: () => requestRename(path) },
+        { label: IS_MAC ? "Finder'da göster" : "Dosya Gezgini'nde göster", icon: FolderInput, onSelect: () => void openPath(path) },
+        "divider",
+        { label: "Çöp kutusuna taşı", icon: Trash2, destructive: true, onSelect: () => requestTrash(path, true) },
+      ];
+    }
+    const isPinned = pinned.some((p) => samePath(p, path));
+    return [
+      { label: "Aç", onSelect: () => openNote(path) },
+      { label: isPinned ? "Sabitlemeyi kaldır" : "Sabitle", icon: isPinned ? PinOff : Pin, onSelect: () => togglePin(path) },
+      { label: "Yeniden adlandır", onSelect: () => requestRename(path) },
+      "divider",
+      { label: IS_MAC ? "Finder'da göster" : "Dosya Gezgini'nde göster", icon: FolderInput, onSelect: () => void openPath(dirname(path)) },
+      { label: "Varsayılan uygulamada aç", onSelect: () => void openPath(path) },
+      "divider",
+      { label: "Çöp kutusuna taşı", icon: Trash2, destructive: true, onSelect: () => requestTrash(path, false) },
+    ];
+  }, [rowMenu, pinned, newNote, requestNewFolder, requestRename, requestTrash, openNote, togglePin]);
+
+  const exportToPdf = useCallback(async () => {
+    try {
+      await exportPreviewToPdf({ source: sourceRef.current, activePath, profile: exportProfile });
+    } catch (err) {
+      const message = err instanceof PdfExportError ? err.message : "PDF'e aktarılamadı";
+      console.error("marknote: pdf export failed", err);
+      setLoadError({ message });
+    }
+  }, [activePath, exportProfile, setLoadError]);
+
+  const exportToHtml = useCallback(async () => {
+    try {
+      const target = await exportPreviewToHtml({ source: sourceRef.current, activePath, profile: exportProfile });
+      if (target) showInfo({ message: `${basename(target)} dışa aktarıldı` }, 2400);
+    } catch (err) {
+      setLoadError({ message: err instanceof Error ? err.message : "HTML dışa aktarılamadı" });
+    }
+  }, [activePath, exportProfile, showInfo, setLoadError]);
+
+  const toggleFullscreen = useCallback(async () => {
+    const win = getCurrentWindow();
+    try {
+      await win.setFullscreen(!(await win.isFullscreen()));
+    } catch (err) {
+      console.error("marknote: fullscreen toggle failed", err);
+    }
+  }, []);
+
+  const toggleFocus = useCallback(() => setFocusMode((v) => !v), []);
+
+  const docMenuItems = useMemo<ContextMenuItem[]>(() => {
+    if (!docMenu) return [];
+    const check = (mode: ViewMode) => (viewMode === mode ? "seçili" : undefined);
+    const aiDisabled = !translateReady || aiJob != null || !source.trim();
+    const items: ContextMenuItem[] = [
+      { label: "Kaydet", icon: Save, hint: IS_MAC ? "⌘S" : "Ctrl+S", onSelect: () => void saveCurrent() },
+      { label: "Farklı kaydet…", onSelect: () => void saveAs() },
+      { label: "Sürüm geçmişi…", icon: History, onSelect: openHistory },
+      "divider",
+      { label: `Görünüm: ${VIEW_LABELS.write}`, icon: PenLine, hint: check("write"), onSelect: () => setViewMode("write") },
+      { label: `Görünüm: ${VIEW_LABELS.markdown}`, icon: FileCode2, hint: check("markdown"), onSelect: () => setViewMode("markdown") },
+      { label: `Görünüm: ${VIEW_LABELS.split}`, icon: Columns2, hint: check("split"), onSelect: () => setViewMode("split") },
+      { label: `Görünüm: ${VIEW_LABELS.read}`, icon: BookOpen, hint: check("read"), onSelect: () => setViewMode("read") },
+      { label: focusMode ? "Odak modundan çık" : "Odak modu", icon: Maximize2, onSelect: toggleFocus },
+      "divider",
+      { label: "Markdown'ı kopyala", icon: Copy, onSelect: () => void copyMarkdown() },
+      { label: "PDF olarak dışa aktar", icon: FileDown, onSelect: () => void exportToPdf() },
+      { label: "HTML olarak dışa aktar", icon: FileDown, onSelect: () => void exportToHtml() },
+      "divider",
+      { label: "AI ile düzelt", icon: CheckCheck, hint: aiTooltip, disabled: aiDisabled, onSelect: () => startAi("proofread") },
+      { label: `AI ile çevir (${targetLanguage})`, icon: Languages, hint: aiTooltip, disabled: aiDisabled, onSelect: () => startAi("translate") },
+      { label: "Prompta dönüştür", icon: WandSparkles, hint: aiTooltip, disabled: aiDisabled, onSelect: () => startAi("promptify") },
+      { label: "Geliştirici araçları", icon: Settings2, onSelect: () => setDeveloperToolsOpen(true) },
+    ];
+    if (activePath) {
+      const isPinned = pinned.some((p) => samePath(p, activePath));
+      items.push(
+        "divider",
+        { label: isPinned ? "Sabitlemeyi kaldır" : "Sabitle", icon: isPinned ? PinOff : Pin, onSelect: () => togglePin(activePath) },
+        { label: IS_MAC ? "Finder'da göster" : "Dosya Gezgini'nde göster", icon: FolderInput, onSelect: () => void openPath(dirname(activePath)) },
+        { label: "Çöp kutusuna taşı", icon: Trash2, destructive: true, onSelect: () => requestTrash(activePath, false) },
+      );
+    }
+    return items;
+  }, [docMenu, viewMode, translateReady, aiJob, source, saveCurrent, saveAs, openHistory, focusMode, toggleFocus, copyMarkdown, exportToPdf, exportToHtml, aiTooltip, startAi, targetLanguage, activePath, pinned, togglePin, requestTrash]);
 
   const handleEditorContextMenu = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
@@ -764,114 +1194,60 @@ export function App() {
     const hasSelection = selection.from !== selection.to;
     setSelectionRange(selection);
     setAiSelectionScope(hasSelection);
-    setEditorContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      range: hasSelection ? selection : { from: 0, to: source.length },
-      hasSelection,
-    });
+    setEditorContextMenu({ x: e.clientX, y: e.clientY, range: hasSelection ? selection : { from: 0, to: source.length }, hasSelection });
   }, [source.length]);
-
-  const closeRichContextMenu = useCallback(() => setRichContextMenu(null), []);
 
   const handleRichContextMenu = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const sel = richEditor?.state.selection;
-    const hasSelection = sel ? sel.from !== sel.to : false;
-    setRichContextMenu({ x: e.clientX, y: e.clientY, hasSelection });
+    const sel = richEditor && !richEditor.isDestroyed ? richEditor.state.selection : null;
+    setRichContextMenu({ x: e.clientX, y: e.clientY, hasSelection: sel ? sel.from !== sel.to : false });
   }, [richEditor]);
 
-  // context menu for the WYSIWYG pane. AI runs on the whole document; clipboard
-  // and selection use the tiptap editor directly so the text side works on its own.
   const richContextItems = useMemo<ContextMenuItem[]>(() => {
     if (!richContextMenu) return [];
     const { hasSelection } = richContextMenu;
+    const editor = richEditor && !richEditor.isDestroyed ? richEditor : null;
     const wholeFile: TextRange = { from: 0, to: source.length };
-    const targetLanguage = LANGUAGES.find((lang) => lang.code === translateTargetLang)?.label ?? translateTargetLang;
+    const aiDisabled = !translateReady || aiJob != null || !source.trim();
     const selectedText = () => {
-      if (!richEditor) return "";
-      const { from, to } = richEditor.state.selection;
-      return richEditor.state.doc.textBetween(from, to, "\n");
+      if (!editor) return "";
+      const { from, to } = editor.state.selection;
+      return editor.state.doc.textBetween(from, to, "\n");
     };
     return [
+      { label: "Kopyala", icon: Copy, disabled: !hasSelection, onSelect: () => { const t = selectedText(); if (t) void navigator.clipboard.writeText(t); } },
       {
-        label: "ai proofread",
-        icon: CheckCheck,
-        hint: "file",
-        disabled: !translateReady || correcting || !source.trim(),
-        onSelect: () => void handleCorrectMarkdown(wholeFile),
-      },
-      {
-        label: "turn into prompt",
-        icon: WandSparkles,
-        hint: "file",
-        disabled: !translateReady || promptifying || !source.trim(),
-        onSelect: () => void handlePromptifyMarkdown(wholeFile),
-      },
-      {
-        label: "translate",
-        icon: Languages,
-        hint: `${targetLanguage} · file`,
-        disabled: !translateReady || translating || !source.trim(),
-        onSelect: () => void handleTranslateMarkdown(wholeFile),
-      },
-      "divider",
-      {
-        label: "copy",
-        icon: Copy,
-        disabled: !hasSelection,
-        onSelect: () => {
-          const text = selectedText();
-          if (text) void navigator.clipboard.writeText(text);
-        },
-      },
-      {
-        label: "cut",
+        label: "Kes",
         icon: Scissors,
-        disabled: !hasSelection,
+        disabled: !hasSelection || !richSafe,
         onSelect: () => {
-          const text = selectedText();
-          if (text) void navigator.clipboard.writeText(text);
-          richEditor?.chain().focus().deleteSelection().run();
+          const t = selectedText();
+          if (t) void navigator.clipboard.writeText(t);
+          editor?.chain().focus().deleteSelection().run();
         },
       },
       {
-        label: "paste",
+        label: "Yapıştır",
         icon: Clipboard,
+        disabled: !richSafe,
         onSelect: () => {
           void navigator.clipboard.readText().then((text) => {
-            if (text) richEditor?.chain().focus().insertContent(text).run();
+            if (text) editor?.chain().focus().insertContent(text).run();
           });
         },
       },
+      { label: "Tümünü seç", icon: TextCursorInput, onSelect: () => editor?.chain().focus().selectAll().run() },
       "divider",
-      {
-        label: "select all",
-        icon: TextCursorInput,
-        onSelect: () => richEditor?.chain().focus().selectAll().run(),
-      },
+      { label: "AI ile düzelt", icon: CheckCheck, hint: "tüm not", disabled: aiDisabled, onSelect: () => startAi("proofread", wholeFile) },
+      { label: "Prompta dönüştür", icon: WandSparkles, hint: "tüm not", disabled: aiDisabled, onSelect: () => startAi("promptify", wholeFile) },
+      { label: "Çevir", icon: Languages, hint: `${targetLanguage} · tüm not`, disabled: aiDisabled, onSelect: () => startAi("translate", wholeFile) },
     ];
-  }, [
-    richContextMenu,
-    richEditor,
-    source,
-    translateReady,
-    correcting,
-    promptifying,
-    translating,
-    translateTargetLang,
-    handleCorrectMarkdown,
-    handlePromptifyMarkdown,
-    handleTranslateMarkdown,
-  ]);
+  }, [richContextMenu, richEditor, richSafe, source, translateReady, aiJob, startAi, targetLanguage]);
 
   const replaceEditorRange = useCallback((range: TextRange, text: string) => {
     setTranslatedSource(null);
-    mdEditorRef.current?.replaceRange(range, text, {
-      from: range.from + text.length,
-      to: range.from + text.length,
-    });
+    mdEditorRef.current?.replaceRange(range, text, { from: range.from + text.length, to: range.from + text.length });
   }, []);
 
   const editorContextItems = useMemo<ContextMenuItem[]>(() => {
@@ -879,41 +1255,12 @@ export function App() {
     const { range, hasSelection } = editorContextMenu;
     const targetRange = hasSelection ? range : { from: 0, to: source.length };
     const selectedText = hasSelection ? source.slice(range.from, range.to) : "";
-    const aiHint = hasSelection ? "selection" : "file";
-    const targetLanguage = LANGUAGES.find((lang) => lang.code === translateTargetLang)?.label ?? translateTargetLang;
+    const aiHint = hasSelection ? "seçim" : "tüm not";
+    const aiDisabled = !translateReady || aiJob != null || !source.trim();
     return [
+      { label: "Kopyala", icon: Copy, disabled: !hasSelection, onSelect: () => { if (selectedText) void navigator.clipboard.writeText(selectedText); } },
       {
-        label: "ai proofread",
-        icon: CheckCheck,
-        hint: aiHint,
-        disabled: !translateReady || correcting || !source.trim(),
-        onSelect: () => void handleCorrectMarkdown(targetRange),
-      },
-      {
-        label: "turn into prompt",
-        icon: WandSparkles,
-        hint: aiHint,
-        disabled: !translateReady || promptifying || !source.trim(),
-        onSelect: () => void handlePromptifyMarkdown(targetRange),
-      },
-      {
-        label: "translate",
-        icon: Languages,
-        hint: `${targetLanguage} · ${aiHint}`,
-        disabled: !translateReady || translating || !source.trim(),
-        onSelect: () => void handleTranslateMarkdown(targetRange),
-      },
-      "divider",
-      {
-        label: "copy",
-        icon: Copy,
-        disabled: !hasSelection,
-        onSelect: () => {
-          if (selectedText) void navigator.clipboard.writeText(selectedText);
-        },
-      },
-      {
-        label: "cut",
+        label: "Kes",
         icon: Scissors,
         disabled: !hasSelection,
         onSelect: () => {
@@ -922,19 +1269,16 @@ export function App() {
         },
       },
       {
-        label: "paste",
+        label: "Yapıştır",
         icon: Clipboard,
         onSelect: () => {
           void navigator.clipboard.readText().then((text) => {
-            if (!text) return;
-            const pasteRange = hasSelection ? range : selectionRange;
-            replaceEditorRange(pasteRange, text);
+            if (text) replaceEditorRange(hasSelection ? range : selectionRange, text);
           });
         },
       },
-      "divider",
       {
-        label: "select all",
+        label: "Tümünü seç",
         icon: TextCursorInput,
         onSelect: () => {
           const full = { from: 0, to: source.length };
@@ -943,145 +1287,48 @@ export function App() {
           mdEditorRef.current?.selectRange(full);
         },
       },
+      "divider",
+      { label: "AI ile düzelt", icon: CheckCheck, hint: aiHint, disabled: aiDisabled, onSelect: () => startAi("proofread", targetRange) },
+      { label: "Prompta dönüştür", icon: WandSparkles, hint: aiHint, disabled: aiDisabled, onSelect: () => startAi("promptify", targetRange) },
+      { label: "Çevir", icon: Languages, hint: `${targetLanguage} · ${aiHint}`, disabled: aiDisabled, onSelect: () => startAi("translate", targetRange) },
       {
-        label: hasSelection ? "use selection for ai" : "ai uses whole file",
+        label: hasSelection ? "AI için seçimi kullan" : "AI tüm notu kullanır",
         icon: MousePointer2,
-        hint: hasSelection ? "on" : "file",
         disabled: !hasSelection,
         onSelect: () => setAiSelectionScope(true),
       },
     ];
-  }, [
-    editorContextMenu,
-    source,
-    translateReady,
-    correcting,
-    promptifying,
-    translating,
-    translateTargetLang,
-    handleCorrectMarkdown,
-    handlePromptifyMarkdown,
-    handleTranslateMarkdown,
-    replaceEditorRange,
-    selectionRange,
-  ]);
+  }, [editorContextMenu, source, translateReady, aiJob, startAi, targetLanguage, replaceEditorRange, selectionRange]);
 
-  const contextItems = useMemo<ContextMenuItem[]>(() => {
-    if (!contextMenu) return [];
-    const { path, isDir } = contextMenu;
-    const items: ContextMenuItem[] = [
-      {
-        label: "rename",
-        onSelect: () => setEditingPath(path),
-      },
-    ];
-    if (isDir) {
-      items.push("divider");
-      items.push({
-        label: "new file",
-        onSelect: () => setNewEntry({ parent: path, kind: "file" }),
-      });
-      items.push({
-        label: "new folder",
-        onSelect: () => setNewEntry({ parent: path, kind: "folder" }),
-      });
-    } else {
-      items.push("divider");
-      items.push({
-        label: "reveal in finder",
-        onSelect: () => void openPath(dirname(path)),
-      });
-      items.push({
-        label: "open in default app",
-        onSelect: () => void openPath(path),
-      });
-    }
-    items.push("divider");
-    items.push({
-      label: isDir ? "delete folder" : "delete",
-      destructive: true,
-      onSelect: () => {
-        const name = basename(path);
-        const msg = isDir
-          ? `delete folder "${name}" and everything inside it?\n\nthis cannot be undone.`
-          : `delete "${name}"?\n\nthis cannot be undone.`;
-        if (!window.confirm(msg)) return;
-        void (async () => {
-          try {
-            await removeEntry(path, isDir);
-            // if the deleted file was active, clear the editor back to demo
-            if (!isDir && activePath === path) {
-              loadDemo();
-            }
-            // if the deleted folder contained the active file, clear too
-            if (isDir && activePath && activePath.startsWith(path + "/")) {
-              loadDemo();
-            }
-            bumpTree();
-          } catch (err) {
-            console.error("marknote: delete failed", err);
-            setLoadError({ message: `couldn't delete: ${String(err)}` });
-          }
-        })();
-      },
-    });
-    return items;
-  }, [contextMenu, activePath, setActivePath, bumpTree]);
-
-  // OS "Open With → marknote" from Finder — Rust emits marknote:open-file
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    void listen<string>("marknote:open-file", (event) => {
-      const path = event.payload;
-      if (typeof path === "string" && path.length > 0) {
-        continueNavigation(() => void loadFile(path));
-      }
-    }).then((un) => {
-      unlisten = un;
-    });
-    return () => {
-      unlisten?.();
-    };
-  }, [loadFile, continueNavigation]);
-
-  // OS drop. dragDropEnabled is OFF so Tauri doesn't intercept. counter guards
-  // nested dragenter/leave firing multiple times.
+  // ---- OS file drop -----------------------------------------------------------------
   useEffect(() => {
     let enterCount = 0;
-
     const isOsFileDrag = (e: DragEvent) => {
       if (!e.dataTransfer) return false;
-      // never engage on in-app sidebar drags
       if (e.dataTransfer.types.includes("application/x-marknote-path")) return false;
       return e.dataTransfer.types.includes("Files");
     };
-
     const reset = () => {
       enterCount = 0;
       setDragActive(false);
     };
-
     const onDragEnter = (e: DragEvent) => {
       if (!isOsFileDrag(e)) return;
       enterCount += 1;
       if (enterCount === 1) setDragActive(true);
     };
-
     const onDragOver = (e: DragEvent) => {
       if (!isOsFileDrag(e)) return;
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     };
-
     const onDragLeave = (e: DragEvent) => {
       if (!isOsFileDrag(e)) return;
       enterCount = Math.max(0, enterCount - 1);
       if (enterCount === 0) setDragActive(false);
     };
-
     const onDrop = async (e: DragEvent) => {
       if (!isOsFileDrag(e)) {
-        // safety: any drop that lands on window resets state
         reset();
         return;
       }
@@ -1090,26 +1337,26 @@ export function App() {
       const files = Array.from(e.dataTransfer?.files ?? []);
       const firstMd = files.find((f) => isEditablePath(f.name));
       if (firstMd) {
-        // WKWebView doesn't expose file path; load content as an untitled buffer.
         try {
           const text = await firstMd.text();
-          startNewBuffer(text);
+          // the webview doesn't expose the path: open as a new unsaved note,
+          // through the same unsaved-changes guard (F04)
+          continueNavigation(() => {
+            setNewNoteFolder(null);
+            startNewBuffer(text);
+          });
         } catch (err) {
           console.error("marknote: file drop read failed", err);
-          setLoadError({ message: `could not read ${firstMd.name} — ${err}` });
+          setLoadError({ message: `${firstMd.name} okunamadı - ${err}` });
         }
       } else if (files.length > 0) {
-        setLoadError({
-          message: "only .md / .markdown / .mdx / .txt / .env files can be opened in marknote",
-        });
+        setLoadError({ message: "Yalnız .md / .markdown / .mdx / .txt / .env dosyaları açılabilir" });
       }
     };
-
     window.addEventListener("dragenter", onDragEnter);
     window.addEventListener("dragover", onDragOver);
     window.addEventListener("dragleave", onDragLeave);
     window.addEventListener("drop", onDrop);
-    // safety: any of these end the drag for sure — keeps state from sticking
     window.addEventListener("dragend", reset);
     window.addEventListener("blur", reset);
     return () => {
@@ -1120,8 +1367,9 @@ export function App() {
       window.removeEventListener("dragend", reset);
       window.removeEventListener("blur", reset);
     };
-  }, [setActivePath]);
+  }, [continueNavigation, startNewBuffer, setLoadError]);
 
+  // ---- shortcuts -----------------------------------------------------------------
   const shortcuts = useMemo(
     () => ({
       "mod+k": (e: KeyboardEvent) => {
@@ -1132,30 +1380,17 @@ export function App() {
         e.preventDefault();
         setHelpOpen((v) => !v);
       },
-      "mod+b": (e: KeyboardEvent) => {
-        e.preventDefault();
-        // functional update — avoids stale closure on rapid double-tap when
-        // shortcuts memo hasn't rebuilt yet
-        setSidebarOpen((v: boolean) => !v);
-      },
       "mod+s": (e: KeyboardEvent) => {
         e.preventDefault();
-        if (activePath) {
-          // existing file — only write if dirty
-          if (dirty) void saveNow(activePath, source);
-        } else {
-          // untitled buffer — open native save dialog (resolves #17 save half + macOS parity)
-          void saveAs();
-        }
+        void saveCurrent();
       },
       "mod+shift+s": (e: KeyboardEvent) => {
         e.preventDefault();
-        // explicit "save as" — works on both untitled and existing buffers
         void saveAs();
       },
       "mod+n": (e: KeyboardEvent) => {
         e.preventDefault();
-        handleNewFile();
+        newNote();
       },
       "mod+o": (e: KeyboardEvent) => {
         e.preventDefault();
@@ -1165,13 +1400,17 @@ export function App() {
         e.preventDefault();
         void handleOpenFolder();
       },
+      "mod+shift+f": (e: KeyboardEvent) => {
+        e.preventDefault();
+        focusSearch();
+      },
       "mod+shift+c": (e: KeyboardEvent) => {
         e.preventDefault();
         void copyMarkdown();
       },
       "mod+p": (e: KeyboardEvent) => {
         e.preventDefault();
-        exportToPdf();
+        void exportToPdf();
       },
       "mod+ctrl+f": (e: KeyboardEvent) => {
         e.preventDefault();
@@ -1179,21 +1418,22 @@ export function App() {
       },
       "mod+.": (e: KeyboardEvent) => {
         e.preventDefault();
-        toggleReadingMode();
+        setViewMode((v) => (v === "read" ? "write" : "read"));
       },
       "mod+shift+.": (e: KeyboardEvent) => {
         e.preventDefault();
-        toggleEditorOnly();
+        toggleFocus();
       },
       escape: (e: KeyboardEvent) => {
-        if (readingMode) {
+        if (viewMode === "read") {
           e.preventDefault();
-          exitReadingMode();
+          setViewMode("write");
+        } else if (focusMode) {
+          e.preventDefault();
+          setFocusMode(false);
         }
       },
-      // ⌘F / Ctrl+F — only active in reading mode. In editor mode, codemirror
-      // owns ⌘F via its searchKeymap (editor.tsx:105).
-      ...(readingMode
+      ...(viewMode === "read"
         ? {
             "mod+f": (e: KeyboardEvent) => {
               e.preventDefault();
@@ -1202,131 +1442,86 @@ export function App() {
           }
         : {}),
     }),
-    [
-      activePath,
-      source,
-      dirty,
-      saveNow,
-      saveAs,
-      handleOpenFile,
-      handleOpenFolder,
-      handleNewFile,
-      handleToggleSidebar,
-      copyMarkdown,
-      exportToPdf,
-      toggleFullscreen,
-      readingMode,
-      toggleReadingMode,
-      exitReadingMode,
-      toggleEditorOnly,
-    ],
+    [setPaletteOpen, setHelpOpen, saveCurrent, saveAs, newNote, handleOpenFile, handleOpenFolder, focusSearch, copyMarkdown, exportToPdf, toggleFullscreen, toggleFocus, viewMode, focusMode],
   );
   useShortcuts(shortcuts);
 
   const commands = useMemo(
     () =>
       buildCommands({
-        newFile: handleNewFile,
+        newFile: () => newNote(),
         openFile: handleOpenFile,
         openFolder: handleOpenFolder,
-        save: () => {
-          if (activePath && dirty) {
-            void saveNow(activePath, source);
-          }
-        },
-        toggleSidebar: handleToggleSidebar,
-        toggleReading: toggleReadingMode,
+        save: () => void saveCurrent(),
+        saveAs: () => void saveAs(),
+        search: focusSearch,
+        toggleFocus,
+        setView: setViewMode,
+        showHistory: openHistory,
         showHelp,
-        showWelcome,
         showAbout,
-        loadDemo,
+        showSettings: () => setSettingsOpen(true),
+        showDeveloperTools: () => setDeveloperToolsOpen(true),
         undoFileOp: handleUndoFileOp,
         checkForUpdates: handleManualUpdateCheck,
         copyMarkdown,
-        exportToPdf,
+        exportToPdf: () => void exportToPdf(),
         toggleFullscreen,
-        openRecent: (path: string) => continueNavigation(() => void loadFile(path)),
+        openRecent: (path: string) => openNote(path),
         recentFiles,
         hasActivePath: activePath != null,
-        sidebarOpen,
-        readingMode,
-        editorOnly,
-        toggleEditorOnly,
+        focusMode,
+        viewMode,
       }),
-    [
-      handleNewFile,
-      handleOpenFile,
-      handleOpenFolder,
-      activePath,
-      source,
-      dirty,
-      saveNow,
-      sidebarOpen,
-      copyMarkdown,
-      showHelp,
-      showWelcome,
-      showAbout,
-      loadDemo,
-      handleUndoFileOp,
-      handleManualUpdateCheck,
-      exportToPdf,
-      toggleFullscreen,
-      handleToggleSidebar,
-      loadFile,
-      continueNavigation,
-      recentFiles,
-    ],
+    [newNote, handleOpenFile, handleOpenFolder, saveCurrent, saveAs, focusSearch, toggleFocus, openHistory, showHelp, showAbout, handleUndoFileOp, handleManualUpdateCheck, copyMarkdown, exportToPdf, toggleFullscreen, openNote, recentFiles, activePath, focusMode, viewMode],
   );
 
-  const displayName = activePath ? basename(activePath) : undefined;
-  // left "text" pane — Word-like WYSIWYG editor. formatting (bold, color,
-  // highlight, headings, lists) renders visually; never raw markdown/HTML tags.
-  // edits serialize back to the shared markdown `source` so the markdown pane +
-  // preview stay in sync.
-  const editorWorkspace = (
-    <div className="mdv-editor-workspace">
+  // ---- editor surfaces ------------------------------------------------------------
+  const switchToSource = useCallback(() => setViewMode("markdown"), []);
+
+  const richWorkspace = (
+    <div className="mdv-doc-write">
       <RichToolbar
         editor={richEditor}
+        readOnly={!richSafe}
         textColor={editorTextColor}
         highlightColor={editorHighlightColor}
         secretsPresent={sourceHasSecrets(source)}
         secretsHidden={secretsHidden}
         onToggleSecrets={toggleSecrets}
       />
-      <div className="mdv-editor-workspace__body">
-        <div className="mdv-editor-workspace__main">
+      <div className="mdv-doc-scroll">
+        <div className="mdv-doc-page">
           <RichEditor
+            ref={richRef}
             value={source}
             onChange={setSource}
             secretsHidden={secretsHidden}
             onEditorReady={handleRichEditorReady}
             onContextMenu={handleRichContextMenu}
+            onRequestSource={switchToSource}
+            onCompatibilityChange={setRichSafe}
           />
-          {editorAiBusyLabel ? (
-            <div className="mdv-editor-ai-busy" role="status" aria-live="polite">
-              <span className="mdv-editor-ai-busy__spinner" aria-hidden />
-              <span>{editorAiBusyLabel}</span>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
   );
 
-  // right pane ("markdown page") — markdown toolbar + syntax-highlighted source
-  // editor + outline. all markdown tooling lives here (#editor-split)
   const markdownWorkspace = (
     <div className="mdv-editor-workspace">
       <MarkdownToolbar
         onAction={handleMarkdownAction}
         onTemplate={handleInsertTemplate}
-        onSnapshot={() => handleCreateSnapshot()}
-        onShowSnapshots={() => {
-          refreshSnapshots();
-          setSnapshotsOpen(true);
+        onSnapshot={() => void saveCurrentVersion().then((ok) => ok && showInfo({ message: "Sürüm kaydedildi" }, 2000))}
+        onShowSnapshots={openHistory}
+        onUndo={() => {
+          setTranslatedSource(null);
+          mdEditorRef.current?.undo();
         }}
-        onUndo={handleUndoEdit}
-        onRedo={handleRedoEdit}
+        onRedo={() => {
+          setTranslatedSource(null);
+          mdEditorRef.current?.redo();
+        }}
         inspectorOpen={inspectorOpen}
         onToggleInspector={() => setInspectorOpen((v) => !v)}
         textColor={editorTextColor}
@@ -1346,155 +1541,161 @@ export function App() {
           />
         </div>
         {inspectorOpen ? (
-          <MarkdownInspector
-            headings={headings}
-            issues={markdownIssues}
-            onGoTo={(pos) => mdEditorRef.current?.goTo(pos)}
-          />
+          <MarkdownInspector headings={headings} issues={markdownIssues} onGoTo={(pos) => mdEditorRef.current?.goTo(pos)} />
         ) : null}
       </div>
     </div>
   );
 
+  const previewSource = translatedSource ?? debouncedPreview;
+  const preview = (
+    <Preview
+      source={previewSource}
+      onTranslate={() => void handlePreviewTranslate()}
+      onRevertTranslation={() => setTranslatedSource(null)}
+      translating={previewTranslating}
+      translated={translatedSource != null}
+      translateDisabled={!translateReady}
+      translateTooltip={aiTooltip}
+      secretsHidden={secretsHidden}
+      onToggleSecrets={toggleSecrets}
+    />
+  );
+
+  const appClass = [
+    "mdv-app",
+    "mdv-app--notebook",
+    focusMode ? "is-focus" : "",
+    showNav ? "has-nav" : "",
+    showList ? "has-list" : "",
+    navCollapsed && navDrawer ? "nav-drawer" : "",
+    listCollapsed && listDrawer ? "list-drawer" : "",
+    dockMode !== "off" && !dockOpen ? `is-docked is-docked-${dockMode}` : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div
-      className={`mdv-app${sidebarOpen ? " has-sidebar" : ""}${readingMode ? " is-reading" : ""}${dockMode !== "off" && !dockOpen ? ` is-docked is-docked-${dockMode}` : ""}`}
-      style={appStyle}
-    >
+    <div className={appClass} style={appStyle}>
       {dockMode !== "off" && !dockOpen ? (
         <button
           type="button"
           className={`mdv-dock-rail mdv-dock-rail--${dockMode}`}
           onClick={handleDockTabClick}
-          aria-label="open marknote"
-          data-tooltip="open"
+          aria-label="marknote'u aç"
+          data-tooltip="Aç"
         >
           <Icon icon={dockMode === "left" ? ChevronRight : ChevronLeft} size={14} strokeWidth={1.8} />
         </button>
       ) : null}
 
-      <TitleBar
-        fileName={displayName}
-        filePath={activePath}
-        dirty={dirty}
-        readingMode={readingMode}
-        onToggleReading={toggleReadingMode}
-        onCopyMarkdown={activePath || source ? () => void copyMarkdown() : undefined}
-        copyPulse={copyPulse}
-        onExportPdf={exportToPdf}
-        vimOn={vimOn}
-        onToggleVim={() => setVimOn((v) => !v)}
-      />
+      <div className="mdv-body">
+        {showNav ? (
+          <NavPanel
+            section={navSection}
+            onSelectSection={selectSection}
+            counts={{ all: noteIndex ? noteIndex.notes.length : null, pinned: pinned.length, trash: trashItems.length }}
+            rootPath={rootPath}
+            onNewNote={() => newNote(navSection.kind === "folder" ? navSection.path : null)}
+            onOpenFolder={() => void handleOpenFolder()}
+            onNewFolder={() => rootPath && requestNewFolder(navSection.kind === "folder" ? navSection.path : rootPath)}
+            onShowSettings={() => setSettingsOpen(true)}
+            onMove={(src, dst) => void handleMove(src, dst)}
+            onFolderContextMenu={handleFolderContextMenu}
+            editingPath={null}
+            onSubmitRename={(src, name) => void handleSubmitRename(src, name)}
+            onCancelEdit={() => undefined}
+            newEntry={null}
+            onSubmitNew={(parent, kind, name) => void handleSubmitNew(parent, kind, name)}
+            onCancelNew={() => undefined}
+            treeVersion={treeVersion}
+          />
+        ) : null}
+        {navCollapsed && navDrawer ? <div className="mdv-scrim" onClick={() => setNavDrawer(false)} aria-hidden /> : null}
 
-      <Breadcrumb
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={handleToggleSidebar}
-        rootPath={rootPath}
-        activePath={activePath}
-        saveStatus={saveStatus}
-        onNewFile={handleNewFile}
-        onOpenFile={handleOpenFile}
-        onOpenFolder={handleOpenFolder}
-        onCopyMarkdown={activePath || source ? () => void copyMarkdown() : undefined}
-        copyPulse={copyPulse}
-        onCorrectMarkdown={source.trim() ? () => void handleCorrectMarkdown() : undefined}
-        correcting={correcting}
-        correctDisabled={!translateReady || correcting}
-        correctTooltip={aiTooltip}
-        onPromptifyMarkdown={source.trim() ? () => void handlePromptifyMarkdown() : undefined}
-        promptifying={promptifying}
-        promptifyDisabled={!translateReady || promptifying}
-        promptifyTooltip={aiTooltip}
-        aiSelectionAvailable={hasTextSelection}
-        aiSelectionActive={aiSelectionScope}
-        aiSelectionLabel={`${selectionCharCount} chars`}
-        onToggleAiSelection={() => setAiSelectionScope((v) => !v)}
-        onSave={() => {
-          if (activePath) {
-            if (dirty) void saveNow(activePath, source);
-          } else {
-            void saveAs();
-          }
-        }}
-        saveDisabled={activePath != null && !dirty}
-        onNavigateToFolder={(folder) => {
-          setRootPath(folder);
-          setSidebarOpen(true);
-        }}
-        editorVisible={editorVisible}
-        previewVisible={previewVisible}
-        onToggleEditor={handleToggleEditor}
-        onTogglePreview={handleTogglePreview}
-        secretsPresent={sourceHasSecrets(source)}
-        secretsHidden={secretsHidden}
-        onToggleSecrets={toggleSecrets}
-      />
+        {showList ? (
+          <NoteList
+            heading={listHeading}
+            items={listItems}
+            selectedPath={activePath}
+            query={query}
+            onQueryChange={setQuery}
+            searchHits={searchResult?.hits ?? null}
+            notices={listNotices}
+            loading={indexLoading}
+            error={indexError}
+            onRetry={() => setIndexVersion((v) => v + 1)}
+            hasFolder={rootPath != null}
+            onOpenFolder={() => void handleOpenFolder()}
+            onNewNote={() => newNote()}
+            onSelect={selectFromList}
+            onContextMenu={handleRowContextMenu}
+            emptyText={listEmptyText}
+            trash={navSection.kind === "trash" ? trashItems : null}
+            onRestore={(item) => void handleRestoreTrash(item)}
+            onDeleteForever={handleDeleteForever}
+            onEmptyTrash={handleEmptyTrash}
+          />
+        ) : null}
+        {listCollapsed && listDrawer && !focusMode ? <div className="mdv-scrim mdv-scrim--list" onClick={() => setListDrawer(false)} aria-hidden /> : null}
 
-      <main className="mdv-shell">
-        {readingMode ? (
-          <>
-            <Preview
-              source={previewSource}
-              onTranslate={handleTranslate}
-              onRevertTranslation={handleRevertTranslation}
-              translating={translating}
-              translated={translatedSource != null}
-              translateDisabled={!translateReady}
-              translateTooltip={translateTooltip}
-              secretsHidden={secretsHidden}
-              onToggleSecrets={toggleSecrets}
-            />
-            <ReadingFind
-              open={findOpen}
-              onClose={() => setFindOpen(false)}
-              scope={proseEl}
-              contentKey={debouncedPreview}
-            />
-          </>
-        ) : (
-          <>
-            <Sidebar
-              open={sidebarOpen}
-              rootPath={rootPath}
-              activePath={activePath}
-              width={sidebarWidth}
-              onWidthChange={setSidebarWidth}
-              onOpenFolder={handleOpenFolder}
-              onNewFileAtRoot={rootPath ? () => setNewEntry({ parent: rootPath, kind: "file" }) : undefined}
-              onNewFolderAtRoot={rootPath ? () => setNewEntry({ parent: rootPath, kind: "folder" }) : undefined}
-              onSelectFile={(path) => continueNavigation(() => void loadFile(path))}
-              onNavigateToFolder={(folder) => {
-                setRootPath(folder);
-                setSidebarOpen(true);
-              }}
-              onMove={handleMove}
-              onContextMenu={handleContextMenu}
-              onRequestRename={setEditingPath}
-              editingPath={editingPath}
-              onSubmitRename={handleSubmitRename}
-              onCancelEdit={() => setEditingPath(null)}
-              newEntry={newEntry}
-              onSubmitNew={handleSubmitNew}
-              onCancelNew={() => setNewEntry(null)}
-              treeVersion={treeVersion}
-            />
-            {editorOnly ? (
-              <div className="mdv-shell__editor-solo">
-                {editorWorkspace}
+        <main className="mdv-doc" aria-label="Not">
+          <EditorHeader
+            folderLabel={folderLabel}
+            title={docTitle}
+            isNew={isNew}
+            saveStatus={saveStatus}
+            saveError={lastSaveError}
+            onSave={() => void saveCurrent()}
+            viewMode={viewMode}
+            onViewMode={setViewMode}
+            focusMode={focusMode}
+            onToggleFocus={toggleFocus}
+            onOpenMenu={(rect) => setDocMenu({ x: rect.right - 240, y: rect.bottom + 4 })}
+            showNavButton={navCollapsed && !focusMode}
+            onToggleNav={() => setNavDrawer((v) => !v)}
+            showListButton={(listCollapsed && !focusMode) || focusMode}
+            onToggleList={() => {
+              if (focusMode) setFocusMode(false);
+              else setListDrawer((v) => !v);
+            }}
+          />
+          <div className="mdv-doc-body">
+            <EditorErrorBoundary resetKey={`${viewMode}:${docId}`} onOpenSource={switchToSource}>
+              <div className="mdv-view" hidden={viewMode !== "write"}>{richWorkspace}</div>
+              <div className="mdv-view" hidden={viewMode !== "markdown" && viewMode !== "split"}>
+                <Splitter
+                  show={viewMode === "split" ? "both" : "left"}
+                  left={markdownWorkspace}
+                  right={viewMode === "split" ? preview : null}
+                />
               </div>
-            ) : previewOnly ? (
-              <div className="mdv-shell__editor-solo">
-                {markdownWorkspace}
+              {viewMode === "read" ? (
+                <div className="mdv-view mdv-doc-read">
+                  {preview}
+                  <ReadingFind open={findOpen} onClose={() => setFindOpen(false)} scope={proseEl} contentKey={debouncedPreview} />
+                </div>
+              ) : null}
+            </EditorErrorBoundary>
+            {aiJob ? (
+              <div className="mdv-editor-ai-busy" role="status" aria-live="polite">
+                <span className="mdv-editor-ai-busy__spinner" aria-hidden />
+                <span>{aiJob.label}</span>
+                <button type="button" className="mdv-save__action" onClick={() => aiJob.controller.abort()}>İptal</button>
               </div>
-            ) : (
-              <Splitter
-                left={editorWorkspace}
-                right={markdownWorkspace}
-              />
-            )}
-          </>
-        )}
-      </main>
+            ) : null}
+          </div>
+        </main>
+      </div>
+
+      <StatusBar
+        fileName={activePath ? basename(activePath) : undefined}
+        words={words}
+        minutes={minutes}
+        docTokens={docTokens}
+        tokensLabel={techCounters ? `~${formatTokens(docTokens)} token` : null}
+        onShowHelp={() => setHelpOpen(true)}
+        onShowAbout={showAbout}
+        vimMode={viewMode === "markdown" || viewMode === "split" ? vimMode : null}
+      />
 
       <Toast
         open={loadError != null}
@@ -1503,7 +1704,7 @@ export function App() {
         action={
           loadError?.path
             ? {
-                label: "open in default app",
+                label: "Varsayılan uygulamada aç",
                 onClick: async () => {
                   if (loadError.path) {
                     try {
@@ -1517,76 +1718,60 @@ export function App() {
             : undefined
         }
       />
-
+      <Toast open={copyToast != null && loadError == null} message={copyToast ?? ""} variant="info" onDismiss={dismissCopyToast} />
       <Toast
-        open={copyToast != null && loadError == null}
-        message={copyToast ?? ""}
+        open={infoToast != null && loadError == null}
+        message={infoToast?.message ?? ""}
         variant="info"
-        onDismiss={dismissCopyToast}
+        durationMs={null}
+        onDismiss={() => setInfoToast(null)}
+        action={infoToast?.action ? {
+          label: infoToast.action.label,
+          onClick: () => {
+            infoToast.action?.onClick();
+            setInfoToast(null);
+          },
+        } : undefined}
       />
-
-      <Toast
-        open={saveAsToast != null && loadError == null}
-        message={saveAsToast ?? ""}
-        variant="info"
-        onDismiss={dismissSaveAsToast}
-      />
-
       <Toast
         open={updateAvail != null && loadError == null}
-        message={
-          updateInstalling
-            ? `installing v${updateAvail?.version}…`
-            : `update available · v${updateAvail?.version}`
-        }
+        message={updateInstalling ? `v${updateAvail?.version} kuruluyor…` : `Güncelleme var · v${updateAvail?.version}`}
         variant="info"
         durationMs={null}
         onDismiss={() => setUpdateAvail(null)}
-        action={
-          updateInstalling
-            ? undefined
-            : { label: "install", onClick: () => void handleApplyUpdate() }
-        }
+        action={updateInstalling ? undefined : { label: "Kur", onClick: () => void handleApplyUpdate() }}
       />
-
       <Toast
         open={updateUpToDate && loadError == null && updateAvail == null}
-        message="you're on the latest version"
+        message="En güncel sürümü kullanıyorsunuz"
         variant="info"
         onDismiss={() => setUpdateUpToDate(false)}
       />
-
       <Toast
         open={whatsNewVersion != null && loadError == null && updateAvail == null}
         message={whatsNewVersion ? getWhatsNewToastMessage(whatsNewVersion) : ""}
         variant="info"
         durationMs={null}
         onDismiss={() => setWhatsNewVersion(null)}
-        action={{
-          label: "what's new",
-          onClick: () => {
-            void openUrl(CHANGELOG_URL);
-          },
-        }}
+        action={{ label: "Yenilikler", onClick: () => void openUrl(CHANGELOG_URL) }}
       />
-
       <Toast
         open={externalReloadToast && loadError == null}
-        message="file changed externally · reloaded"
+        message="Dosya dışarıda değişti · yeniden yüklendi"
         variant="info"
         onDismiss={dismissExternalReload}
       />
-
       <Toast
         open={externalConflict != null && loadError == null}
-        message="this file changed externally · your unsaved edits would be lost"
+        message="Bu dosya dışarıda değişti. Kaydedilmemiş değişiklikleriniz var; yeniden yüklerseniz kaybolur."
         variant="info"
         durationMs={null}
         onDismiss={() => setExternalConflict(null)}
         action={{
-          label: "reload (discard mine)",
+          label: "Dıştakini yükle (benimkini at)",
           onClick: () => {
             if (externalConflict != null) {
+              void saveVersion(activePath, sourceRef.current, "Dış değişiklikten önce").catch(() => undefined);
               acceptExternalChange(externalConflict);
             }
             setExternalConflict(null);
@@ -1594,51 +1779,92 @@ export function App() {
         }}
       />
 
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        commands={commands}
-      />
-
-      <HelpOverlay
-        open={helpOpen}
-        onClose={() => setHelpOpen(false)}
-        onReplayTutorial={showWelcome}
-      />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
+      <HelpOverlay open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       <AiReviewOverlay
         open={aiReview != null}
-        title={aiReview?.title ?? "ai review"}
+        title={aiReview?.title ?? "AI"}
         original={aiReview?.original ?? ""}
         next={aiReview?.next ?? ""}
         onApply={applyAiReview}
         onClose={() => setAiReview(null)}
       />
 
-      <Toast
-        open={recoveryDraft != null && loadError == null}
-        message="an unsaved draft was recovered from the previous session"
-        variant="info"
-        durationMs={null}
-        onDismiss={dismissRecovery}
-        action={{ label: "restore", onClick: restoreRecovery }}
+      <SecretSendDialog
+        open={secretPrompt != null}
+        secretCount={secretPrompt?.count ?? 0}
+        chars={secretPrompt?.text.length ?? 0}
+        onSendMasked={() => {
+          const p = secretPrompt;
+          setSecretPrompt(null);
+          if (p) void runAi(p.kind, p.range, p.text, true);
+        }}
+        onSendRaw={() => {
+          const p = secretPrompt;
+          setSecretPrompt(null);
+          if (p) void runAi(p.kind, p.range, p.text, false);
+        }}
+        onCancel={() => setSecretPrompt(null)}
       />
 
-      <UnsavedChangesOverlay
-        open={pendingNavigation != null}
-        fileName={activePath ? basename(activePath) : "untitled.md"}
+      <RecoveryDialog
+        open={recoveryDraft != null}
+        fileName={recoveryDraft?.path ? basename(recoveryDraft.path) : "Yeni not"}
+        chars={recoveryDraft?.source.length ?? 0}
+        onRestore={() => continueNavigation(() => void restoreRecovery())}
+        onDiscard={dismissRecovery}
+      />
+
+      <UnsavedChangesDialog
+        open={pendingNavigation != null && recoveryDraft == null}
+        fileName={activePath ? basename(activePath) : docTitle}
         saving={navigationSaving}
         onSave={() => void saveAndContinue()}
         onDiscard={discardAndContinue}
-        onCancel={() => setPendingNavigation(null)}
+        onCancel={cancelNavigation}
       />
 
-      <SnapshotsOverlay
-        open={snapshotsOpen}
-        snapshots={snapshots}
-        onRestore={handleRestoreSnapshot}
-        onDelete={handleDeleteSnapshot}
-        onClose={() => setSnapshotsOpen(false)}
+      <ConfirmDialog
+        open={confirmState != null}
+        title={confirmState?.title ?? ""}
+        confirmLabel={confirmState?.confirmLabel ?? "Tamam"}
+        destructive={confirmState?.destructive}
+        onConfirm={() => {
+          const c = confirmState;
+          setConfirmState(null);
+          c?.onConfirm();
+        }}
+        onCancel={() => setConfirmState(null)}
+      >
+        {confirmState?.body}
+      </ConfirmDialog>
+
+      <PromptDialog
+        open={promptState != null}
+        title={promptState?.title ?? ""}
+        label={promptState?.label ?? ""}
+        initialValue={promptState?.initialValue ?? ""}
+        confirmLabel={promptState?.confirmLabel ?? "Tamam"}
+        validate={validateName}
+        onSubmit={(value) => {
+          const p = promptState;
+          setPromptState(null);
+          p?.onSubmit(value);
+        }}
+        onCancel={() => setPromptState(null)}
+      />
+
+      <HistoryOverlay
+        open={historyOpen}
+        noteName={activePath ? basename(activePath) : "Yeni not"}
+        entries={historyEntries}
+        error={historyError}
+        busy={historyBusy}
+        onSaveVersion={() => void saveCurrentVersion().then((ok) => { if (ok) void refreshHistory(); })}
+        onRestore={(entry) => void handleRestoreVersion(entry)}
+        onDelete={(entry) => void handleDeleteVersion(entry)}
+        onClose={() => setHistoryOpen(false)}
       />
 
       <SettingsOverlay
@@ -1646,6 +1872,18 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         vimOn={vimOn}
         onVimToggle={setVimOn}
+        techCounters={techCounters}
+        onTechCountersChange={setTechCounters}
+        remoteImages={remoteImages}
+        onRemoteImagesChange={setRemoteImages}
+        onShowAbout={() => {
+          setSettingsOpen(false);
+          showAbout();
+        }}
+        onShowDeveloperTools={() => {
+          setSettingsOpen(false);
+          setDeveloperToolsOpen(true);
+        }}
         openrouterKey={openrouterKey}
         onOpenrouterKeyChange={setOpenrouterKey}
         openrouterModel={openrouterModel}
@@ -1681,7 +1919,10 @@ export function App() {
         activePath={activePath}
         source={source}
         onChange={setSource}
-        onOpenFile={(path) => continueNavigation(() => void loadFile(path))}
+        onOpenFile={(path, match) => {
+          setDeveloperToolsOpen(false);
+          openNote(path, match);
+        }}
         exportProfile={exportProfile}
         onExportProfileChange={setExportProfile}
         onExportHtml={() => void exportToHtml()}
@@ -1689,55 +1930,15 @@ export function App() {
         onClose={() => setDeveloperToolsOpen(false)}
       />
 
-      <AboutOverlay
-        open={aboutOpen}
-        onClose={() => setAboutOpen(false)}
-        onCheckForUpdates={UPDATES_ENABLED ? handleManualUpdateCheck : undefined}
-      />
-
-      <WelcomeOverlay
-        open={welcomeOpen}
-        onClose={dismissWelcome}
-        onOpenFolder={handleOpenFolder}
-      />
+      <AboutOverlay open={aboutOpen} onClose={() => setAboutOpen(false)} onCheckForUpdates={UPDATES_ENABLED ? handleManualUpdateCheck : undefined} />
 
       <DropOverlay active={dragActive} />
       <TooltipRoot />
 
-      <ContextMenu
-        open={contextMenu != null}
-        x={contextMenu?.x ?? 0}
-        y={contextMenu?.y ?? 0}
-        items={contextItems}
-        onClose={closeContextMenu}
-      />
-
-      <ContextMenu
-        open={editorContextMenu != null}
-        x={editorContextMenu?.x ?? 0}
-        y={editorContextMenu?.y ?? 0}
-        items={editorContextItems}
-        onClose={closeEditorContextMenu}
-      />
-
-      <ContextMenu
-        open={richContextMenu != null}
-        x={richContextMenu?.x ?? 0}
-        y={richContextMenu?.y ?? 0}
-        items={richContextItems}
-        onClose={closeRichContextMenu}
-      />
-
-      <StatusBar
-        fileName={displayName}
-        words={words}
-        minutes={minutes}
-        docTokens={docTokens}
-        onShowHelp={() => setHelpOpen(true)}
-        onShowSettings={() => setSettingsOpen(true)}
-        onShowDeveloperTools={() => setDeveloperToolsOpen(true)}
-        vimMode={readingMode ? null : vimMode}
-      />
+      <ContextMenu open={rowMenu != null} x={rowMenu?.x ?? 0} y={rowMenu?.y ?? 0} items={rowMenuItems} onClose={() => setRowMenu(null)} />
+      <ContextMenu open={docMenu != null} x={docMenu?.x ?? 0} y={docMenu?.y ?? 0} items={docMenuItems} onClose={() => setDocMenu(null)} />
+      <ContextMenu open={editorContextMenu != null} x={editorContextMenu?.x ?? 0} y={editorContextMenu?.y ?? 0} items={editorContextItems} onClose={() => setEditorContextMenu(null)} />
+      <ContextMenu open={richContextMenu != null} x={richContextMenu?.x ?? 0} y={richContextMenu?.y ?? 0} items={richContextItems} onClose={() => setRichContextMenu(null)} />
     </div>
   );
 }

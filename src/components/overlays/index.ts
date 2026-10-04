@@ -1,11 +1,10 @@
 export { CommandPalette, type Command } from "./command-palette";
 export { HelpOverlay } from "./help-overlay";
 export { SettingsOverlay } from "./settings-overlay";
-export { SnapshotsOverlay } from "./snapshots-overlay";
+export { HistoryOverlay } from "./history-overlay";
+export { ConfirmDialog, PromptDialog, RecoveryDialog, SecretSendDialog, UnsavedChangesDialog } from "./dialogs";
 export { AboutOverlay } from "./about-overlay";
 export { AiReviewOverlay } from "./ai-review-overlay";
-export { WelcomeOverlay } from "./welcome-overlay";
-export { UnsavedChangesOverlay } from "./unsaved-changes-overlay";
 export { DeveloperToolsOverlay } from "./developer-tools-overlay";
 export { DropOverlay } from "./drop-overlay";
 export { Toast, type ToastAction } from "./toast";

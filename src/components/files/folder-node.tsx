@@ -2,16 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
 import { Icon } from "@/components/primitives";
 import type { FileEntry } from "@/lib";
+import { isSameOrChildPath, samePath } from "@/lib/paths";
 import { FileTree, type NewEntry } from "./file-tree";
 
 export const DRAG_MIME = "application/x-marknote-path";
 
-function isDescendantPath(child: string, parent: string): boolean {
-  if (child === parent) return true;
-  const sep = parent.includes("\\") ? "\\" : "/";
-  const prefix = parent.endsWith(sep) ? parent : parent + sep;
-  return child.startsWith(prefix);
-}
 
 type FolderNodeProps = {
   entry: FileEntry;
@@ -31,6 +26,9 @@ type FolderNodeProps = {
   onCancelNew?: () => void;
   treeVersion: number;
   depth: number;
+  foldersOnly?: boolean;
+  selectedFolder?: string | null;
+  onSelectFolder?: (path: string) => void;
 };
 
 export function FolderNode({
@@ -49,7 +47,11 @@ export function FolderNode({
   onCancelNew,
   treeVersion,
   depth,
+  foldersOnly = false,
+  selectedFolder = null,
+  onSelectFolder,
 }: FolderNodeProps) {
+  const selected = samePath(selectedFolder, entry.path);
   const [open, setOpen] = useState(false);
   const [isDropTarget, setIsDropTarget] = useState(false);
   const toggle = useCallback(() => setOpen((v) => !v), []);
@@ -80,7 +82,7 @@ export function FolderNode({
     setIsDropTarget(false);
     const src = e.dataTransfer.getData(DRAG_MIME);
     if (!src || !onMove) return;
-    if (isDescendantPath(entry.path, src)) return; // drop into self or descendant
+    if (isSameOrChildPath(entry.path, src)) return; // drop into self or descendant
     onMove(src, entry.path);
   };
 
@@ -92,13 +94,20 @@ export function FolderNode({
   };
 
   return (
-    <li className="mdv-tree__item" role="treeitem" aria-expanded={open}>
+    <li className="mdv-tree__item" role="treeitem" aria-expanded={open} aria-selected={onSelectFolder ? selected : undefined}>
       <button
         type="button"
         draggable
-        className={`mdv-tree__row mdv-tree__row--folder${isDropTarget ? " is-drop-target" : ""}`}
+        className={`mdv-tree__row mdv-tree__row--folder${isDropTarget ? " is-drop-target" : ""}${selected ? " is-active" : ""}`}
         style={{ paddingLeft: `${8 + depth * 12}px` }}
-        onClick={toggle}
+        onClick={() => {
+          if (onSelectFolder) {
+            onSelectFolder(entry.path);
+            if (!open) setOpen(true);
+            return;
+          }
+          toggle();
+        }}
         onDoubleClick={(e) => {
           if (onNavigate) {
             e.preventDefault();
@@ -118,7 +127,15 @@ export function FolderNode({
         onDrop={onDrop}
         title={entry.name}
       >
-        <span className={`mdv-tree__chevron${open ? " is-open" : ""}`}>
+        <span
+          className={`mdv-tree__chevron${open ? " is-open" : ""}`}
+          onClick={(e) => {
+            if (!onSelectFolder) return;
+            // chevron only expands/collapses; the row selects
+            e.stopPropagation();
+            toggle();
+          }}
+        >
           <Icon icon={ChevronRight} size={12} strokeWidth={2} />
         </span>
         <span className="mdv-tree__icon">
@@ -143,6 +160,9 @@ export function FolderNode({
           onCancelNew={onCancelNew}
           treeVersion={treeVersion}
           depth={depth + 1}
+          foldersOnly={foldersOnly}
+          selectedFolder={selectedFolder}
+          onSelectFolder={onSelectFolder}
         />
       ) : null}
     </li>

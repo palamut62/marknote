@@ -23,8 +23,16 @@ try {
   console.warn("marknote: legacy settings migration failed", err);
 }
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+async function boot() {
+  // dev-only browser harness; the whole branch is dropped from production builds
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has("mock")) {
+    await import("./dev/mock-tauri");
+  }
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+}
+
+void boot();

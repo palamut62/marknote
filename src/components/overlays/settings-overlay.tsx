@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Eye, EyeOff, Palette, Pencil, RefreshCw, Settings, Sparkles, Cpu, X } from "lucide-react";
+import { Eye, EyeOff, Palette, Pencil, RefreshCw, Settings, ShieldCheck, Sparkles, Cpu, Wrench, X } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { OWNER_GITHUB_URL, OWNER_NAME, OWNER_X_URL } from "./about-overlay";
 import { Button, Icon, Overlay } from "@/components/primitives";
 import {
   getAutostartEnabled,
@@ -23,6 +25,12 @@ type SettingsOverlayProps = {
   onClose: () => void;
   vimOn: boolean;
   onVimToggle: (next: boolean) => void;
+  techCounters: boolean;
+  onTechCountersChange: (next: boolean) => void;
+  remoteImages: boolean;
+  onRemoteImagesChange: (next: boolean) => void;
+  onShowAbout: () => void;
+  onShowDeveloperTools: () => void;
   openrouterKey: string;
   onOpenrouterKeyChange: (next: string) => void;
   openrouterModel: string;
@@ -53,17 +61,21 @@ type SettingsOverlayProps = {
   onDockModeChange?: (next: "off" | "left" | "right") => void;
 };
 
-type TabId = "appearance" | "editor" | "ai" | "system";
+type TabId = "appearance" | "editor" | "ai" | "privacy" | "advanced" | "system";
 
 const TABS: ReadonlyArray<{ id: TabId; label: string; icon: typeof Palette }> = [
-  { id: "appearance", label: "appearance", icon: Palette },
-  { id: "editor", label: "editor", icon: Pencil },
-  { id: "ai", label: "ai", icon: Sparkles },
-  { id: "system", label: "system", icon: Cpu },
+  { id: "appearance", label: "Görünüm", icon: Palette },
+  { id: "editor", label: "Editör", icon: Pencil },
+  { id: "ai", label: "Yapay zeka", icon: Sparkles },
+  { id: "privacy", label: "Gizlilik", icon: ShieldCheck },
+  { id: "advanced", label: "Gelişmiş", icon: Wrench },
+  { id: "system", label: "Sistem", icon: Cpu },
 ];
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = [
-  { value: "system", label: "system" },
+  { value: "system", label: "Sistem" },
+  { value: "sade", label: "Sade (açık)" },
+  { value: "gece", label: "Gece (koyu)" },
   { value: "latte", label: "latte" },
   { value: "frappe", label: "frappé" },
   { value: "macchiato", label: "macchiato" },
@@ -79,6 +91,12 @@ export function SettingsOverlay({
   onClose,
   vimOn,
   onVimToggle,
+  techCounters,
+  onTechCountersChange,
+  remoteImages,
+  onRemoteImagesChange,
+  onShowAbout,
+  onShowDeveloperTools,
   openrouterKey,
   onOpenrouterKeyChange,
   openrouterModel,
@@ -148,7 +166,7 @@ export function SettingsOverlay({
 
   const fetchModels = useCallback(async () => {
     if (!openrouterKey) {
-      setModelsError("enter an api key first");
+      setModelsError("Önce bir API anahtarı gir");
       return;
     }
     setModelsLoading(true);
@@ -164,26 +182,26 @@ export function SettingsOverlay({
   }, [openrouterKey]);
 
   return (
-    <Overlay open={open} onClose={onClose} ariaLabel="settings" variant="modal">
+    <Overlay open={open} onClose={onClose} ariaLabel="Ayarlar" variant="modal">
       <header className="mdv-help__header">
         <div className="mdv-help__title">
           <span className="mdv-settings__icon" aria-hidden>
             <Icon icon={Settings} size={20} strokeWidth={1.5} />
           </span>
           <div className="mdv-help__title-text">
-            <span className="mdv-help__brand">settings</span>
-            <span className="mdv-help__subtitle">configure marknote to your taste</span>
+            <span className="mdv-help__brand">Ayarlar</span>
+            <span className="mdv-help__subtitle">Marknote'u zevkine göre ayarla</span>
           </div>
         </div>
         <Button
-          title="close (esc)"
-          aria-label="close"
+          title="Kapat (Esc)"
+          aria-label="Kapat"
           onClick={onClose}
           icon={<Icon icon={X} size={14} strokeWidth={1.5} />}
         />
       </header>
 
-      <nav className="mdv-settings__tabs" role="tablist" aria-label="settings categories">
+      <nav className="mdv-settings__tabs" role="tablist" aria-label="Ayar kategorileri">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -204,8 +222,8 @@ export function SettingsOverlay({
           <section className="mdv-help__section">
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
-                <span>theme</span>
-                <span className="mdv-settings__hint">color scheme used across the app</span>
+                <span>Tema</span>
+                <span className="mdv-settings__hint">Uygulamanın renk düzeni</span>
               </div>
               <div className="mdv-settings__control">
                 <select
@@ -224,9 +242,9 @@ export function SettingsOverlay({
 
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
-                <span>window transparency</span>
+                <span>Pencere saydamlığı</span>
                 <span className="mdv-settings__hint">
-                  {opacity >= 100 ? "off" : `${opacity}% opaque`}
+                  {opacity >= 100 ? "kapalı" : `%${opacity} opak`}
                 </span>
               </div>
               <div className="mdv-settings__control">
@@ -238,7 +256,7 @@ export function SettingsOverlay({
                   value={opacity}
                   onChange={(e) => setTransparency(Number(e.target.value))}
                   className="mdv-settings__slider"
-                  aria-label="window transparency"
+                  aria-label="Pencere saydamlığı"
                 />
               </div>
             </div>
@@ -249,26 +267,8 @@ export function SettingsOverlay({
           <section className="mdv-help__section">
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
-                <span>vim mode</span>
-                <span className="mdv-settings__hint">modal editing — normal/insert/visual/replace</span>
-              </div>
-              <div className="mdv-settings__control">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={vimOn}
-                  className={`mdv-settings__switch${vimOn ? " is-on" : ""}`}
-                  onClick={() => onVimToggle(!vimOn)}
-                >
-                  <span className="mdv-settings__switch-thumb" aria-hidden />
-                </button>
-              </div>
-            </div>
-
-            <div className="mdv-settings__row">
-              <div className="mdv-settings__label">
-                <span>selected text color</span>
-                <span className="mdv-settings__hint">used by the toolbar text-color button</span>
+                <span>Seçili metin rengi</span>
+                <span className="mdv-settings__hint">Araç çubuğundaki metin rengi düğmesi kullanır</span>
               </div>
               <div className="mdv-settings__control mdv-settings__control--color">
                 <input
@@ -276,7 +276,7 @@ export function SettingsOverlay({
                   className="mdv-settings__color"
                   value={editorTextColor}
                   onChange={(e) => onEditorTextColorChange(e.target.value)}
-                  aria-label="selected text color"
+                  aria-label="Seçili metin rengi"
                 />
                 <span className="mdv-settings__color-value">{editorTextColor}</span>
               </div>
@@ -284,8 +284,8 @@ export function SettingsOverlay({
 
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
-                <span>selected highlight color</span>
-                <span className="mdv-settings__hint">used by the toolbar highlight button</span>
+                <span>Seçili vurgu rengi</span>
+                <span className="mdv-settings__hint">Araç çubuğundaki vurgu düğmesi kullanır</span>
               </div>
               <div className="mdv-settings__control mdv-settings__control--color">
                 <input
@@ -293,7 +293,7 @@ export function SettingsOverlay({
                   className="mdv-settings__color"
                   value={editorHighlightColor}
                   onChange={(e) => onEditorHighlightColorChange(e.target.value)}
-                  aria-label="selected highlight color"
+                  aria-label="Seçili vurgu rengi"
                 />
                 <span className="mdv-settings__color-value">{editorHighlightColor}</span>
               </div>
@@ -301,12 +301,12 @@ export function SettingsOverlay({
 
             <div className="mdv-settings__row mdv-settings__row--stack">
               <div className="mdv-settings__label">
-                <span>hidden key colors</span>
-                <span className="mdv-settings__hint">editor and preview colors for masked api keys / tokens</span>
+                <span>Gizli anahtar renkleri</span>
+                <span className="mdv-settings__hint">Maskelenmiş API anahtarları / tokenlar için editör ve önizleme renkleri</span>
               </div>
               <div className="mdv-settings__color-grid">
                 <label className="mdv-settings__color-field">
-                  <span>hidden text</span>
+                  <span>Gizli metin</span>
                   <input
                     type="color"
                     className="mdv-settings__color"
@@ -315,7 +315,7 @@ export function SettingsOverlay({
                   />
                 </label>
                 <label className="mdv-settings__color-field">
-                  <span>hidden bg</span>
+                  <span>Gizli arka plan</span>
                   <input
                     type="color"
                     className="mdv-settings__color"
@@ -324,7 +324,7 @@ export function SettingsOverlay({
                   />
                 </label>
                 <label className="mdv-settings__color-field">
-                  <span>revealed text</span>
+                  <span>Görünen metin</span>
                   <input
                     type="color"
                     className="mdv-settings__color"
@@ -333,7 +333,7 @@ export function SettingsOverlay({
                   />
                 </label>
                 <label className="mdv-settings__color-field">
-                  <span>revealed bg</span>
+                  <span>Görünen arka plan</span>
                   <input
                     type="color"
                     className="mdv-settings__color"
@@ -350,8 +350,8 @@ export function SettingsOverlay({
           <section className="mdv-help__section">
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
-                <span>openrouter api key</span>
-                <span className="mdv-settings__hint">stored in your operating system credential vault · only sent to openrouter.ai</span>
+                <span>OpenRouter API anahtarı</span>
+                <span className="mdv-settings__hint">İşletim sistemi kimlik kasasında saklanır · yalnızca openrouter.ai'ye gönderilir</span>
               </div>
               <div className="mdv-settings__control mdv-settings__control--key">
                 <input
@@ -367,7 +367,7 @@ export function SettingsOverlay({
                 <button
                   type="button"
                   className="mdv-settings__icon-btn"
-                  aria-label={keyVisible ? "hide key" : "show key"}
+                  aria-label={keyVisible ? "Anahtarı gizle" : "Anahtarı göster"}
                   onClick={() => setKeyVisible((v) => !v)}
                 >
                   <Icon icon={keyVisible ? EyeOff : Eye} size={12} strokeWidth={1.6} />
@@ -377,13 +377,13 @@ export function SettingsOverlay({
 
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
-                <span>model</span>
+                <span>Model</span>
                 <span className="mdv-settings__hint">
                   {modelsError
                     ? modelsError
                     : models
-                      ? `${models.length} models · pick one`
-                      : "fetch the live list from openrouter"}
+                      ? `${models.length} model · birini seç`
+                      : "Güncel listeyi OpenRouter'dan getir"}
                 </span>
               </div>
               <div className="mdv-settings__control mdv-settings__control--model">
@@ -395,7 +395,7 @@ export function SettingsOverlay({
                 >
                   {models ? (
                     <>
-                      <option value="">— select —</option>
+                      <option value="">- seç -</option>
                       {models.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name}
@@ -405,7 +405,7 @@ export function SettingsOverlay({
                     </>
                   ) : (
                     <option value={openrouterModel}>
-                      {openrouterModel || "— fetch models first —"}
+                      {openrouterModel || "- önce modelleri getir -"}
                     </option>
                   )}
                 </select>
@@ -416,16 +416,16 @@ export function SettingsOverlay({
                   onClick={fetchModels}
                 >
                   <Icon icon={RefreshCw} size={12} strokeWidth={1.6} />
-                  {modelsLoading ? "loading…" : models ? "refresh" : "fetch"}
+                  {modelsLoading ? "Yükleniyor…" : models ? "Yenile" : "Getir"}
                 </button>
               </div>
             </div>
 
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
-                <span>target language</span>
+                <span>Hedef dil</span>
                 <span className="mdv-settings__hint">
-                  preview will be translated into this language when you click the translate icon
+                  Çeviri simgesine tıklayınca önizleme bu dile çevrilir
                 </span>
               </div>
               <div className="mdv-settings__control">
@@ -445,8 +445,8 @@ export function SettingsOverlay({
 
             <div className="mdv-settings__row mdv-settings__row--stack">
               <div className="mdv-settings__label">
-                <span>proofread instruction</span>
-                <span className="mdv-settings__hint">used by the spelling and grammar button</span>
+                <span>Yazım denetimi talimatı</span>
+                <span className="mdv-settings__hint">Yazım ve dil bilgisi düğmesi kullanır</span>
               </div>
               <div className="mdv-settings__prompt">
                 <textarea
@@ -460,15 +460,15 @@ export function SettingsOverlay({
                   className="mdv-settings__btn"
                   onClick={() => onProofreadPromptChange(DEFAULT_PROOFREAD_PROMPT)}
                 >
-                  reset
+                  Sıfırla
                 </button>
               </div>
             </div>
 
             <div className="mdv-settings__row mdv-settings__row--stack">
               <div className="mdv-settings__label">
-                <span>prompt instruction</span>
-                <span className="mdv-settings__hint">used by the turn-into-prompt button</span>
+                <span>Prompt talimatı</span>
+                <span className="mdv-settings__hint">"Prompt'a çevir" düğmesi kullanır</span>
               </div>
               <div className="mdv-settings__prompt">
                 <textarea
@@ -482,16 +482,16 @@ export function SettingsOverlay({
                   className="mdv-settings__btn"
                   onClick={() => onPromptifyPromptChange(DEFAULT_PROMPTIFY_PROMPT)}
                 >
-                  reset
+                  Sıfırla
                 </button>
               </div>
             </div>
 
             <div className="mdv-settings__row mdv-settings__row--stack">
               <div className="mdv-settings__label">
-                <span>translate instruction</span>
+                <span>Çeviri talimatı</span>
                 <span className="mdv-settings__hint">
-                  target language is appended automatically when translating
+                  Çeviri sırasında hedef dil otomatik eklenir
                 </span>
               </div>
               <div className="mdv-settings__prompt">
@@ -506,8 +506,91 @@ export function SettingsOverlay({
                   className="mdv-settings__btn"
                   onClick={() => onTranslatePromptChange(DEFAULT_TRANSLATE_PROMPT)}
                 >
-                  reset
+                  Sıfırla
                 </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "privacy" && (
+          <section className="mdv-help__section">
+            <div className="mdv-settings__row">
+              <div className="mdv-settings__label">
+                <span>İnternetteki görselleri yükle</span>
+                <span className="mdv-settings__hint">
+                  Açıkken, notta internetten bir görsel varsa not açıldığında o sunucuya istek gider. Kapalıyken yalnız yerel görseller gösterilir. Değişiklik not yeniden açılınca uygulanır.
+                </span>
+              </div>
+              <div className="mdv-settings__control">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label="İnternetteki görselleri yükle"
+                  aria-checked={remoteImages}
+                  className={`mdv-settings__switch${remoteImages ? " is-on" : ""}`}
+                  onClick={() => onRemoteImagesChange(!remoteImages)}
+                >
+                  <span className="mdv-settings__switch-thumb" aria-hidden />
+                </button>
+              </div>
+            </div>
+            <div className="mdv-settings__row mdv-settings__row--text">
+              <div className="mdv-settings__label">
+                <span>Verileriniz nerede?</span>
+                <span className="mdv-settings__hint">
+                  Notlar yalnız seçtiğiniz klasördeki dosyalardır; marknote hesap veya bulut kullanmaz. Kaydedilmemiş taslak (kurtarma), sürüm geçmişi ve çöp kutusu bu bilgisayarda uygulama verisi klasöründe tutulur ve şifrelenmez. Sürüm geçmişi not başına 20 sürümle sınırlıdır; çöp kutusu siz boşaltana kadar durur. OpenRouter API anahtarı işletim sisteminin anahtar kasasında saklanır; bu, not yedeklerinin şifrelendiği anlamına gelmez. Yapay zeka özellikleri yalnız siz başlattığınızda, seçili metni OpenRouter'a gönderir.
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "advanced" && (
+          <section className="mdv-help__section">
+            <div className="mdv-settings__row">
+              <div className="mdv-settings__label">
+                <span>Vim modu</span>
+                <span className="mdv-settings__hint">Kipli düzenleme - normal/ekleme/görsel/değiştirme</span>
+              </div>
+              <div className="mdv-settings__control">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={vimOn}
+                  className={`mdv-settings__switch${vimOn ? " is-on" : ""}`}
+                  onClick={() => onVimToggle(!vimOn)}
+                >
+                  <span className="mdv-settings__switch-thumb" aria-hidden />
+                </button>
+              </div>
+            </div>
+
+            <div className="mdv-settings__row">
+              <div className="mdv-settings__label">
+                <span>Teknik sayaçlar</span>
+                <span className="mdv-settings__hint">Durum çubuğunda yaklaşık token sayısını göster</span>
+              </div>
+              <div className="mdv-settings__control">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label="Teknik sayaçlar"
+                  aria-checked={techCounters}
+                  className={`mdv-settings__switch${techCounters ? " is-on" : ""}`}
+                  onClick={() => onTechCountersChange(!techCounters)}
+                >
+                  <span className="mdv-settings__switch-thumb" aria-hidden />
+                </button>
+              </div>
+            </div>
+            <div className="mdv-settings__row">
+              <div className="mdv-settings__label">
+                <span>Geliştirici araçları</span>
+                <span className="mdv-settings__hint">Frontmatter, bağlantı denetimi, geri bağlantılar, Git diff, özel dönüşümler, dışa aktarma profilleri</span>
+              </div>
+              <div className="mdv-settings__control">
+                <button type="button" className="mdv-btn mdv-btn--quiet" onClick={onShowDeveloperTools}>Aç</button>
               </div>
             </div>
           </section>
@@ -517,9 +600,9 @@ export function SettingsOverlay({
           <section className="mdv-help__section">
             <div className="mdv-settings__row">
               <div className="mdv-settings__label">
-                <span>start with system</span>
+                <span>Sistemle birlikte başlat</span>
                 <span className="mdv-settings__hint">
-                  launch marknote automatically when you sign in
+                  Oturum açtığında Marknote otomatik başlasın
                 </span>
               </div>
               <div className="mdv-settings__control">
@@ -539,9 +622,9 @@ export function SettingsOverlay({
             {onDockModeChange ? (
               <div className="mdv-settings__row">
                 <div className="mdv-settings__label">
-                  <span>edge dock</span>
+                  <span>Kenar yuvası</span>
                   <span className="mdv-settings__hint">
-                    pin marknote to a screen edge as a thin tab · click to slide open (~70% width)
+                    Marknote'u ekran kenarına ince bir sekme olarak sabitle · tıklayınca açılır (~%70 genişlik)
                   </span>
                 </div>
                 <div className="mdv-settings__control">
@@ -550,9 +633,9 @@ export function SettingsOverlay({
                     value={dockMode}
                     onChange={(e) => onDockModeChange(e.target.value as "off" | "left" | "right")}
                   >
-                    <option value="off">off</option>
-                    <option value="left">left edge</option>
-                    <option value="right">right edge</option>
+                    <option value="off">Kapalı</option>
+                    <option value="left">Sol kenar</option>
+                    <option value="right">Sağ kenar</option>
                   </select>
                 </div>
               </div>
@@ -561,8 +644,8 @@ export function SettingsOverlay({
             {onCheckForUpdates ? (
               <div className="mdv-settings__row">
                 <div className="mdv-settings__label">
-                  <span>check for updates</span>
-                  <span className="mdv-settings__hint">verify you're on the latest release</span>
+                  <span>Güncellemeleri denetle</span>
+                  <span className="mdv-settings__hint">En son sürümü kullandığını doğrula</span>
                 </div>
                 <div className="mdv-settings__control">
                   <button
@@ -572,7 +655,7 @@ export function SettingsOverlay({
                     onClick={onCheckForUpdates}
                   >
                     <Icon icon={RefreshCw} size={12} strokeWidth={1.6} />
-                    {updateChecking ? "checking…" : "check now"}
+                    {updateChecking ? "Denetleniyor…" : "Şimdi denetle"}
                   </button>
                 </div>
               </div>
@@ -581,8 +664,11 @@ export function SettingsOverlay({
         )}
       </div>
 
-      <footer className="mdv-help__footer">
-        <span>marknote · settings · esc to close</span>
+      <footer className="mdv-help__footer mdv-settings__owner">
+        <span>Ürün sahibi: {OWNER_NAME}</span>
+        <a href={OWNER_X_URL} onClick={(e) => { e.preventDefault(); void openUrl(OWNER_X_URL); }}>X: @palamut62</a>
+        <a href={OWNER_GITHUB_URL} onClick={(e) => { e.preventDefault(); void openUrl(OWNER_GITHUB_URL); }}>GitHub: palamut62</a>
+        <button type="button" className="mdv-btn mdv-btn--quiet" onClick={onShowAbout}>Hakkında</button>
       </footer>
     </Overlay>
   );
