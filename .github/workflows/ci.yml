@@ -7,9 +7,10 @@ on:
     branches: [main]
 
 jobs:
-  typecheck:
-    runs-on: macos-latest
-    timeout-minutes: 10
+  frontend:
+    # typecheck + unit/round-trip tests + production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: checkout
         uses: actions/checkout@v6
@@ -20,14 +21,24 @@ jobs:
           bun-version: latest
 
       - name: install dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: typecheck
         run: bunx tsc --noEmit
 
+      - name: tests
+        run: bun test
+
+      - name: production build
+        run: bun run build
+
   rust-check:
-    runs-on: macos-latest
-    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: checkout
         uses: actions/checkout@v6
@@ -50,3 +61,7 @@ jobs:
       - name: cargo check
         working-directory: src-tauri
         run: cargo check --release
+
+      - name: cargo test (store: trash restore, history keys)
+        working-directory: src-tauri
+        run: cargo test --lib store
