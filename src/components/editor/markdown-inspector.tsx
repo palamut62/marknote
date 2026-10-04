@@ -8,9 +8,9 @@ type MarkdownInspectorProps = {
 
 export function MarkdownInspector({ headings, issues, onGoTo }: MarkdownInspectorProps) {
   return (
-    <aside className="mdv-mdinspect" aria-label="document outline">
+    <aside className="mdv-mdinspect" aria-label="Belge ana hattı">
       <section className="mdv-mdinspect__section">
-        <h2 className="mdv-mdinspect__title">outline</h2>
+        <h2 className="mdv-mdinspect__title">Ana hat</h2>
         {headings.length ? (
           <div className="mdv-mdinspect__list">
             {headings.map((heading) => (
@@ -27,12 +27,12 @@ export function MarkdownInspector({ headings, issues, onGoTo }: MarkdownInspecto
             ))}
           </div>
         ) : (
-          <p className="mdv-mdinspect__empty">no headings</p>
+          <p className="mdv-mdinspect__empty">Başlık yok</p>
         )}
       </section>
 
       <section className="mdv-mdinspect__section">
-        <h2 className="mdv-mdinspect__title">quality</h2>
+        <h2 className="mdv-mdinspect__title">Kalite</h2>
         {issues.length ? (
           <div className="mdv-mdinspect__list">
             {issues.slice(0, 30).map((issue) => (
@@ -48,7 +48,7 @@ export function MarkdownInspector({ headings, issues, onGoTo }: MarkdownInspecto
             ))}
           </div>
         ) : (
-          <p className="mdv-mdinspect__empty">no issues found</p>
+          <p className="mdv-mdinspect__empty">Sorun bulunamadı</p>
         )}
       </section>
     </aside>

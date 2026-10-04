@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
+  Braces,
   CircleHelp,
   Copy,
   FilePlus2,
@@ -9,6 +10,7 @@ import {
   FolderOpen,
   FolderPlus,
   Download,
+  History,
   Info,
   Leaf,
   Undo2,
@@ -16,9 +18,9 @@ import {
   Minimize2,
   Monitor,
   Moon,
-  PanelLeftClose,
-  PanelLeftOpen,
   Save,
+  Search,
+  Settings,
   Sparkles,
   Sun,
 } from "lucide-react";
@@ -37,19 +39,23 @@ export type Command = {
   action: () => void | Promise<void>;
 };
 
+export type CommandViewMode = "write" | "markdown" | "split" | "read";
+
 /** Inputs the app shell knows about — actions and state slices needed for hint text. */
 export type CommandActions = {
   newFile: () => void;
   openFile: () => void | Promise<void>;
   openFolder: () => void | Promise<void>;
   save: () => void;
-  toggleSidebar: () => void;
-  toggleReading: () => void;
-  toggleEditorOnly: () => void;
+  saveAs: () => void;
+  search: () => void;
+  toggleFocus: () => void;
+  setView: (mode: CommandViewMode) => void;
+  showHistory: () => void;
   showHelp: () => void;
-  showWelcome: () => void;
   showAbout: () => void;
-  loadDemo: () => void;
+  showSettings: () => void;
+  showDeveloperTools: () => void;
   undoFileOp: () => void | Promise<void>;
   checkForUpdates: () => void | Promise<void>;
   copyMarkdown: () => void | Promise<void>;
@@ -58,18 +64,26 @@ export type CommandActions = {
   openRecent: (path: string) => void;
   recentFiles: readonly string[];
   hasActivePath: boolean;
-  sidebarOpen: boolean;
-  readingMode: boolean;
-  editorOnly: boolean;
+  focusMode: boolean;
+  viewMode: CommandViewMode;
 };
 
 const THEME_COMMANDS: Array<{ mode: ThemeMode; label: string; hint: string; icon: LucideIcon }> = [
-  { mode: "system", label: "theme: system", hint: "follow macOS appearance", icon: Monitor },
-  { mode: "latte", label: "theme: latte", hint: "catppuccin light", icon: Sun },
-  { mode: "matcha", label: "theme: matcha", hint: "washi paper + kelly green", icon: Leaf },
-  { mode: "frappe", label: "theme: frappé", hint: "catppuccin mid-dark", icon: Moon },
-  { mode: "macchiato", label: "theme: macchiato", hint: "catppuccin deeper dark", icon: Moon },
-  { mode: "mocha", label: "theme: mocha", hint: "catppuccin deepest dark", icon: Moon },
+  { mode: "system", label: "Tema: Sistem", hint: "Sistem görünümünü izle", icon: Monitor },
+  { mode: "sade", label: "Tema: Sade", hint: "Açık, sade (varsayılan)", icon: Sun },
+  { mode: "gece", label: "Tema: Gece", hint: "Koyu, sade", icon: Moon },
+  { mode: "latte", label: "Tema: Latte", hint: "Catppuccin açık", icon: Sun },
+  { mode: "matcha", label: "Tema: Matcha", hint: "Kâğıt ve yeşil", icon: Leaf },
+  { mode: "frappe", label: "Tema: Frappé", hint: "Catppuccin orta koyu", icon: Moon },
+  { mode: "macchiato", label: "Tema: Macchiato", hint: "Catppuccin koyu", icon: Moon },
+  { mode: "mocha", label: "Tema: Mocha", hint: "Catppuccin en koyu", icon: Moon },
+];
+
+const VIEW_COMMANDS: Array<{ mode: CommandViewMode; label: string; hint: string; icon: LucideIcon }> = [
+  { mode: "write", label: "Görünüm: Yaz", hint: "Zengin metin düzenleyici (varsayılan)", icon: FileText },
+  { mode: "markdown", label: "Görünüm: Markdown", hint: "Ham Markdown kaynağı", icon: FileText },
+  { mode: "split", label: "Görünüm: Bölünmüş", hint: "Markdown kaynağı ve gerçek önizleme yan yana", icon: BookOpen },
+  { mode: "read", label: "Görünüm: Okuma", hint: "Yalnız önizleme", icon: BookOpen },
 ];
 
 export const CATEGORY_ORDER: CommandCategory[] = [
@@ -83,13 +97,13 @@ export const CATEGORY_ORDER: CommandCategory[] = [
 ];
 
 export const CATEGORY_LABELS: Record<CommandCategory, string> = {
-  recent: "recent",
-  file: "file",
-  view: "view",
-  edit: "edit",
-  share: "share",
-  theme: "theme",
-  help: "help",
+  recent: "Son açılanlar",
+  file: "Dosya",
+  view: "Görünüm",
+  edit: "Düzen",
+  share: "Paylaş",
+  theme: "Tema",
+  help: "Yardım",
 };
 
 export function buildCommands(actions: CommandActions): Command[] {
@@ -97,7 +111,7 @@ export function buildCommands(actions: CommandActions): Command[] {
     (path): Command => ({
       id: `recent-${path}`,
       label: basename(path),
-      hint: `recent · ${dirname(path)}`,
+      hint: dirname(path),
       icon: FileText,
       category: "recent",
       action: () => actions.openRecent(path),
@@ -107,9 +121,27 @@ export function buildCommands(actions: CommandActions): Command[] {
   return [
     ...recent,
     {
+      id: "new",
+      label: "Yeni not",
+      hint: "Boş bir not başlat",
+      shortcut: "⌘N",
+      icon: FilePlus2,
+      category: "file",
+      action: actions.newFile,
+    },
+    {
+      id: "search",
+      label: "Notlarda ara",
+      hint: "Başlık ve içerikte tek yerden ara",
+      shortcut: "⌘⇧F",
+      icon: Search,
+      category: "file",
+      action: actions.search,
+    },
+    {
       id: "open-folder",
-      label: "open folder…",
-      hint: "load a folder of notes — turn the sidebar into your context library",
+      label: "Klasör aç…",
+      hint: "Notlarınızın bulunduğu klasörü seçin",
       shortcut: "⌘⇧O",
       icon: FolderPlus,
       category: "file",
@@ -117,75 +149,71 @@ export function buildCommands(actions: CommandActions): Command[] {
     },
     {
       id: "open-file",
-      label: "open file…",
-      hint: "pick a single .md from disk",
+      label: "Dosya aç…",
+      hint: "Tek bir .md dosyası açın",
       shortcut: "⌘O",
       icon: FolderOpen,
       category: "file",
       action: actions.openFile,
     },
     {
-      id: "new",
-      label: "new file",
-      hint: "start a blank markdown buffer",
-      shortcut: "⌘N",
-      icon: FilePlus2,
-      category: "file",
-      action: actions.newFile,
-    },
-    {
       id: "save",
-      label: "save",
-      hint: actions.hasActivePath ? "write changes to disk" : "no file loaded — open one first",
+      label: "Kaydet",
+      hint: actions.hasActivePath ? "Değişiklikleri diske yaz" : "Kaydedilecek yeri seçin",
       shortcut: "⌘S",
       icon: Save,
       category: "file",
       action: actions.save,
     },
     {
+      id: "save-as",
+      label: "Farklı kaydet…",
+      hint: "Notu başka bir dosyaya kaydet",
+      shortcut: "⌘⇧S",
+      icon: Save,
+      category: "file",
+      action: actions.saveAs,
+    },
+    {
+      id: "history",
+      label: "Sürüm geçmişi",
+      hint: "Bu notun kayıtlı sürümleri",
+      icon: History,
+      category: "file",
+      action: actions.showHistory,
+    },
+    {
       id: "undo-file-op",
-      label: "undo last file action",
-      hint: "reverse the last move / rename / new file / new folder",
+      label: "Son dosya işlemini geri al",
+      hint: "Son taşıma / yeniden adlandırma / oluşturma",
       shortcut: "⌘⌥Z",
       icon: Undo2,
       category: "file",
       action: actions.undoFileOp,
     },
     {
-      id: "toggle-sidebar",
-      label: actions.sidebarOpen ? "hide sidebar" : "show sidebar",
-      hint: "your folder tree + file search",
-      shortcut: "⌘B",
-      icon: actions.sidebarOpen ? PanelLeftClose : PanelLeftOpen,
-      category: "view",
-      action: actions.toggleSidebar,
-    },
-    {
-      id: "toggle-reading",
-      label: actions.readingMode ? "exit reading mode" : "enter reading mode",
-      hint: actions.readingMode
-        ? "back to split editor + preview"
-        : "calm preview-only view — great for proofing before sharing",
-      shortcut: "⌘.",
-      icon: actions.readingMode ? Minimize2 : BookOpen,
-      category: "view",
-      action: actions.toggleReading,
-    },
-    {
-      id: "toggle-editor-only",
-      label: actions.editorOnly ? "exit editor-only" : "enter editor-only",
-      hint: actions.editorOnly
-        ? "back to split editor + preview"
-        : "hide the preview — focus on writing",
+      id: "toggle-focus",
+      label: actions.focusMode ? "Odak modundan çık" : "Odak modu",
+      hint: "Yan panelleri gizle, yalnız notu göster",
       shortcut: "⌘⇧.",
-      icon: actions.editorOnly ? Minimize2 : FileText,
+      icon: actions.focusMode ? Minimize2 : Maximize2,
       category: "view",
-      action: actions.toggleEditorOnly,
+      action: actions.toggleFocus,
     },
+    ...VIEW_COMMANDS.filter((v) => v.mode !== actions.viewMode).map(
+      (v): Command => ({
+        id: `view-${v.mode}`,
+        label: v.label,
+        hint: v.hint,
+        icon: v.icon,
+        category: "view",
+        action: () => actions.setView(v.mode),
+      }),
+    ),
     {
       id: "fullscreen",
-      label: "toggle fullscreen",
-      hint: "native macOS fullscreen",
+      label: "Tam ekran",
+      hint: "Pencereyi tam ekran yap",
       shortcut: "⌃⌘F",
       icon: Maximize2,
       category: "view",
@@ -193,8 +221,8 @@ export function buildCommands(actions: CommandActions): Command[] {
     },
     {
       id: "copy-markdown",
-      label: "copy markdown to clipboard",
-      hint: "share with any ai — paste straight into chat",
+      label: "Markdown'ı kopyala",
+      hint: "Notun ham metnini panoya kopyala",
       shortcut: "⌘⇧C",
       icon: Copy,
       category: "share",
@@ -202,8 +230,8 @@ export function buildCommands(actions: CommandActions): Command[] {
     },
     {
       id: "export-pdf",
-      label: "export to pdf",
-      hint: "opens print view with stable page margins",
+      label: "PDF olarak dışa aktar",
+      hint: "Yazdırma görünümünü açar",
       shortcut: "⌘P",
       icon: FileDown,
       category: "share",
@@ -221,57 +249,57 @@ export function buildCommands(actions: CommandActions): Command[] {
     ),
     {
       id: "transparency-on",
-      label: "transparency: on (74%)",
-      hint: "macOS vibrancy through the window — adjust opacity in theme menu",
+      label: "Saydamlık: açık (%74)",
+      hint: "Pencere arkasını hafifçe göster",
       icon: Sparkles,
       category: "theme",
       action: () => setTransparency(74),
     },
     {
       id: "transparency-off",
-      label: "transparency: off",
-      hint: "solid window background",
+      label: "Saydamlık: kapalı",
+      hint: "Düz pencere arka planı",
       icon: Sparkles,
       category: "theme",
       action: () => setTransparency(100),
     },
     {
+      id: "settings",
+      label: "Ayarlar",
+      hint: "Tema, AI ve gelişmiş seçenekler",
+      icon: Settings,
+      category: "help",
+      action: actions.showSettings,
+    },
+    {
+      id: "developer-tools",
+      label: "Geliştirici araçları",
+      hint: "Gelişmiş: frontmatter, bağlantı denetimi, Git diff, dönüşümler",
+      icon: Braces,
+      category: "help",
+      action: actions.showDeveloperTools,
+    },
+    {
       id: "help",
-      label: "show help",
-      hint: "keyboard shortcuts + tips",
+      label: "Yardım ve kısayollar",
+      hint: "Klavye kısayolları ve ipuçları",
       shortcut: "⌘/",
       icon: CircleHelp,
       category: "help",
       action: actions.showHelp,
     },
     {
-      id: "demo",
-      label: "show onboarding doc",
-      hint: "load the original 'welcome to marknote' markdown into the editor",
-      icon: BookOpen,
-      category: "help",
-      action: actions.loadDemo,
-    },
-    {
-      id: "tutorial",
-      label: "show tutorial · welcome",
-      hint: "reopen the onboarding modal",
-      icon: Sparkles,
-      category: "help",
-      action: actions.showWelcome,
-    },
-    {
       id: "check-updates",
-      label: "check for updates",
-      hint: "see if there's a newer version of marknote",
+      label: "Güncellemeleri denetle",
+      hint: "Yeni sürüm var mı bak",
       icon: Download,
       category: "help",
       action: actions.checkForUpdates,
     },
     {
       id: "about",
-      label: "about marknote",
-      hint: "version, license, links",
+      label: "marknote hakkında",
+      hint: "Sürüm, lisans, ürün sahibi",
       icon: Info,
       category: "help",
       action: actions.showAbout,

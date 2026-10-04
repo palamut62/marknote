@@ -153,7 +153,7 @@ const PROFILE_PADDING: Record<ExportProfile, string> = {
 /** Export markdown as self-contained print HTML and open in browser to save as PDF. */
 export async function exportPreviewToPdf({ source, activePath, profile = "standard" }: ExportOpts): Promise<void> {
   if (!source.trim()) {
-    throw new PdfExportError("empty", "nothing to export. open or write some markdown first.");
+    throw new PdfExportError("empty", "Dışa aktarılacak bir şey yok. Önce bir markdown aç ya da yaz.");
   }
 
   const fileName = activePath ? basename(activePath) : undefined;
@@ -195,13 +195,13 @@ export async function exportPreviewToPdf({ source, activePath, profile = "standa
     await writeMarkdown(tempPath, html);
     await openPath(tempPath);
   } catch {
-    throw new PdfExportError("io", "couldn't export to pdf — try again, or check disk space");
+    throw new PdfExportError("io", "PDF dışa aktarılamadı - tekrar dene ya da disk alanını kontrol et");
   }
 }
 
 /** Save a standalone HTML document without opening the browser print dialog. */
 export async function exportPreviewToHtml({ source, activePath, profile = "standard" }: ExportOpts): Promise<string | null> {
-  if (!source.trim()) throw new PdfExportError("empty", "nothing to export. open or write some markdown first.");
+  if (!source.trim()) throw new PdfExportError("empty", "Dışa aktarılacak bir şey yok. Önce bir markdown aç ya da yaz.");
   const renderedHtml = await renderMarkdown(source, "latte");
   const body = await renderMermaidInHtml(renderedHtml, "default");
   const title = activePath ? basename(activePath) : "marknote export";

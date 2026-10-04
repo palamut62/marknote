@@ -129,3 +129,36 @@ export function setSecretsHidden(root: HTMLElement, hidden: boolean): void {
 export function hasSecrets(root: HTMLElement): boolean {
   return root.querySelector(".mdv-secret") != null;
 }
+
+export type MaskedText = {
+  text: string;
+  /** number of secrets replaced with placeholders */
+  count: number;
+  /** puts the original secrets back where the placeholders survived */
+  restore: (output: string) => string;
+};
+
+/**
+ * Replaces detected secrets with numbered placeholders before text leaves the
+ * device (AI requests). `restore` maps them back in the model's answer so the
+ * applied result keeps the real values.
+ */
+export function maskSecretsInText(input: string): MaskedText {
+  const ranges = collectRanges(input);
+  if (ranges.length === 0) return { text: input, count: 0, restore: (output) => output };
+  let out = "";
+  let cursor = 0;
+  const secrets: string[] = [];
+  for (const r of ranges) {
+    out += input.slice(cursor, r.start);
+    secrets.push(r.secret);
+    out += `[[GIZLI_${secrets.length}]]`;
+    cursor = r.end;
+  }
+  out += input.slice(cursor);
+  return {
+    text: out,
+    count: secrets.length,
+    restore: (output) => output.replace(/\[\[GIZLI_(\d+)\]\]/g, (match, n: string) => secrets[Number(n) - 1] ?? match),
+  };
+}

@@ -41,22 +41,22 @@ type MarkdownToolbarProps = {
 };
 
 const ACTIONS: ReadonlyArray<{ action: MarkdownAction; label: string; icon: typeof Bold }> = [
-  { action: "h1", label: "heading 1", icon: Heading1 },
-  { action: "h2", label: "heading 2", icon: Heading2 },
-  { action: "h3", label: "heading 3", icon: Heading3 },
-  { action: "bold", label: "bold", icon: Bold },
-  { action: "italic", label: "italic", icon: Italic },
-  { action: "strikethrough", label: "strikethrough", icon: Strikethrough },
-  { action: "quote", label: "quote", icon: Quote },
-  { action: "inline-code", label: "inline code", icon: Code },
-  { action: "code-block", label: "code block", icon: SquareCode },
-  { action: "link", label: "link", icon: Link },
-  { action: "image", label: "image", icon: Image },
-  { action: "bullet-list", label: "bullet list", icon: List },
-  { action: "ordered-list", label: "ordered list", icon: ListOrdered },
-  { action: "checklist", label: "checklist", icon: ListChecks },
-  { action: "hr", label: "divider", icon: Minus },
-  { action: "table", label: "table", icon: Table },
+  { action: "h1", label: "Başlık 1", icon: Heading1 },
+  { action: "h2", label: "Başlık 2", icon: Heading2 },
+  { action: "h3", label: "Başlık 3", icon: Heading3 },
+  { action: "bold", label: "Kalın", icon: Bold },
+  { action: "italic", label: "İtalik", icon: Italic },
+  { action: "strikethrough", label: "Üstü çizili", icon: Strikethrough },
+  { action: "quote", label: "Alıntı", icon: Quote },
+  { action: "inline-code", label: "Satır içi kod", icon: Code },
+  { action: "code-block", label: "Kod bloğu", icon: SquareCode },
+  { action: "link", label: "Bağlantı", icon: Link },
+  { action: "image", label: "Görsel", icon: Image },
+  { action: "bullet-list", label: "Madde listesi", icon: List },
+  { action: "ordered-list", label: "Numaralı liste", icon: ListOrdered },
+  { action: "checklist", label: "Yapılacaklar listesi", icon: ListChecks },
+  { action: "hr", label: "Ayırıcı", icon: Minus },
+  { action: "table", label: "Tablo", icon: Table },
 ];
 
 export function MarkdownToolbar({
@@ -72,7 +72,7 @@ export function MarkdownToolbar({
   highlightColor,
 }: MarkdownToolbarProps) {
   return (
-    <div className="mdv-mdtools" role="toolbar" aria-label="markdown tools">
+    <div className="mdv-mdtools" role="toolbar" aria-label="Markdown araçları">
       <div className="mdv-mdtools__group">
         {ACTIONS.map(({ action, label, icon }) => (
           <button
@@ -92,8 +92,8 @@ export function MarkdownToolbar({
         <button
           type="button"
           className="mdv-mdtools__btn mdv-mdtools__btn--swatch"
-          aria-label="text color"
-          data-tooltip="text color"
+          aria-label="Metin rengi"
+          data-tooltip="Metin rengi"
           onClick={() => onAction("text-color")}
         >
           <Icon icon={Palette} size={13} strokeWidth={1.7} />
@@ -102,8 +102,8 @@ export function MarkdownToolbar({
         <button
           type="button"
           className="mdv-mdtools__btn mdv-mdtools__btn--swatch"
-          aria-label="highlight"
-          data-tooltip="highlight"
+          aria-label="Vurgu"
+          data-tooltip="Vurgu"
           onClick={() => onAction("highlight")}
         >
           <Icon icon={Highlighter} size={13} strokeWidth={1.7} />
@@ -115,15 +115,15 @@ export function MarkdownToolbar({
         <button
           type="button"
           className="mdv-mdtools__template"
-          data-tooltip="insert note template"
+          data-tooltip="Not şablonu ekle"
           onClick={() => onTemplate("note")}
         >
-          note
+          not
         </button>
         <button
           type="button"
           className="mdv-mdtools__template"
-          data-tooltip="insert readme template"
+          data-tooltip="Readme şablonu ekle"
           onClick={() => onTemplate("readme")}
         >
           readme
@@ -131,7 +131,7 @@ export function MarkdownToolbar({
         <button
           type="button"
           className="mdv-mdtools__template"
-          data-tooltip="insert prompt template"
+          data-tooltip="Prompt şablonu ekle"
           onClick={() => onTemplate("prompt")}
         >
           prompt
@@ -142,8 +142,8 @@ export function MarkdownToolbar({
         <button
           type="button"
           className="mdv-mdtools__btn"
-          aria-label="undo edit"
-          data-tooltip="undo edit"
+          aria-label="Düzenlemeyi geri al"
+          data-tooltip="Düzenlemeyi geri al"
           onClick={onUndo}
         >
           <Icon icon={Undo2} size={13} strokeWidth={1.7} />
@@ -151,8 +151,8 @@ export function MarkdownToolbar({
         <button
           type="button"
           className="mdv-mdtools__btn"
-          aria-label="redo edit"
-          data-tooltip="redo edit"
+          aria-label="Düzenlemeyi yinele"
+          data-tooltip="Düzenlemeyi yinele"
           onClick={onRedo}
         >
           <Icon icon={Redo2} size={13} strokeWidth={1.7} />
@@ -163,8 +163,8 @@ export function MarkdownToolbar({
         <button
           type="button"
           className="mdv-mdtools__btn"
-          aria-label="create snapshot"
-          data-tooltip="create snapshot"
+          aria-label="Anlık görüntü oluştur"
+          data-tooltip="Anlık görüntü oluştur"
           onClick={onSnapshot}
         >
           <Icon icon={History} size={13} strokeWidth={1.7} />
@@ -172,8 +172,8 @@ export function MarkdownToolbar({
         <button
           type="button"
           className="mdv-mdtools__btn"
-          aria-label="show snapshots"
-          data-tooltip="show snapshots"
+          aria-label="Anlık görüntüleri göster"
+          data-tooltip="Anlık görüntüleri göster"
           onClick={onShowSnapshots}
         >
           <Icon icon={TimerReset} size={13} strokeWidth={1.7} />
@@ -183,9 +183,9 @@ export function MarkdownToolbar({
       <button
         type="button"
         className={`mdv-mdtools__btn mdv-mdtools__btn--push${inspectorOpen ? " is-active" : ""}`}
-        aria-label={inspectorOpen ? "hide outline" : "show outline"}
+        aria-label={inspectorOpen ? "Ana hatları gizle" : "Ana hatları göster"}
         aria-pressed={inspectorOpen}
-        data-tooltip={inspectorOpen ? "hide outline" : "show outline"}
+        data-tooltip={inspectorOpen ? "Ana hatları gizle" : "Ana hatları göster"}
         onClick={onToggleInspector}
       >
         <Icon icon={inspectorOpen ? PanelRight : Pilcrow} size={13} strokeWidth={1.7} />

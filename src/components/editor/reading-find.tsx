@@ -91,7 +91,7 @@ export function ReadingFind({ open, onClose, scope, contentKey }: Props) {
 
   const noMatch = query.trim().length > 0 && matches.length === 0;
   const countLabel = noMatch
-    ? "no match"
+    ? "Eşleşme yok"
     : matches.length === 0
       ? ""
       : `${activeIdx + 1} / ${matches.length}`;
@@ -118,8 +118,8 @@ export function ReadingFind({ open, onClose, scope, contentKey }: Props) {
             go(-1);
           }
         }}
-        placeholder="find in page"
-        aria-label="find in reading mode"
+        placeholder="Sayfada bul"
+        aria-label="Okuma modunda bul"
         spellCheck={false}
         autoCorrect="off"
         autoCapitalize="off"
@@ -131,9 +131,9 @@ export function ReadingFind({ open, onClose, scope, contentKey }: Props) {
         type="button"
         className="mdv-find__btn"
         onClick={() => go(-1)}
-        aria-label="previous match"
+        aria-label="Önceki eşleşme"
         disabled={matches.length === 0}
-        title="previous match (Shift+Enter)"
+        title="Önceki eşleşme (Shift+Enter)"
       >
         ↑
       </button>
@@ -141,9 +141,9 @@ export function ReadingFind({ open, onClose, scope, contentKey }: Props) {
         type="button"
         className="mdv-find__btn"
         onClick={() => go(1)}
-        aria-label="next match"
+        aria-label="Sonraki eşleşme"
         disabled={matches.length === 0}
-        title="next match (Enter)"
+        title="Sonraki eşleşme (Enter)"
       >
         ↓
       </button>
@@ -151,8 +151,8 @@ export function ReadingFind({ open, onClose, scope, contentKey }: Props) {
         type="button"
         className="mdv-find__btn mdv-find__btn--close"
         onClick={onClose}
-        aria-label="close find"
-        title="close (Esc)"
+        aria-label="Aramayı kapat"
+        title="Kapat (Esc)"
       >
         ×
       </button>

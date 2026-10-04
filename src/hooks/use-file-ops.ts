@@ -12,6 +12,7 @@ import {
   removeEntry,
   renameEntry,
 } from "@/lib";
+import { remapPath, samePath } from "@/lib/paths";
 import type { NewEntry } from "@/components/files/file-tree";
 import type { LoadError } from "./use-file-session";
 
@@ -23,9 +24,13 @@ type UndoOp =
 
 type UseFileOpsArgs = {
   activePath: string | null;
-  setActivePath: (v: string | null | ((p: string | null) => string | null)) => void;
-  loadFile: (path: string) => Promise<void>;
-  startNewBuffer: (initial?: string) => void;
+  dirty: boolean;
+  /** opens a file through the shared unsaved-changes guard (F04) */
+  openFileGuarded: (path: string) => void;
+  /** replaces the buffer through the shared unsaved-changes guard (F04) */
+  newBufferGuarded: () => void;
+  /** a file or folder moved on disk: update every stored path (F05) */
+  onPathsRemapped: (from: string, to: string) => void;
   onError: (err: LoadError) => void;
 };
 
@@ -45,9 +50,10 @@ type UseFileOpsResult = {
 
 export function useFileOps({
   activePath,
-  setActivePath,
-  loadFile,
-  startNewBuffer,
+  dirty,
+  openFileGuarded,
+  newBufferGuarded,
+  onPathsRemapped,
   onError,
 }: UseFileOpsArgs): UseFileOpsResult {
   const [treeVersion, setTreeVersion] = useState(0);
@@ -63,29 +69,37 @@ export function useFileOps({
     if (stack.length > 20) stack.shift();
   }, []);
 
+  // keep queued undo entries valid after their paths move (F05)
+  const remapAll = useCallback((from: string, to: string) => {
+    undoStackRef.current = undoStackRef.current.map((op) => {
+      if (op.kind === "move" || op.kind === "rename") {
+        return { ...op, from: remapPath(op.from, from, to), to: remapPath(op.to, from, to) };
+      }
+      return { ...op, path: remapPath(op.path, from, to) };
+    });
+    onPathsRemapped(from, to);
+  }, [onPathsRemapped]);
+
   const handleMove = useCallback(
     async (src: string, dstParent: string) => {
       try {
         const newPath = await moveEntry(src, dstParent);
+        if (samePath(newPath, src)) return;
+        remapAll(src, newPath);
         pushUndo({ kind: "move", from: src, to: newPath });
         bumpTree();
-        if (activePath === src) setActivePath(newPath);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes(FS_CONFLICT)) {
           const name = basename(src);
-          const target = joinPath(dstParent, name);
-          onError({
-            message: `${name} already exists at the destination`,
-            path: target,
-          });
+          onError({ message: `Hedefte zaten "${name}" var`, path: joinPath(dstParent, name) });
         } else {
           console.error("marknote: move failed", err);
-          onError({ message: `could not move ${basename(src)} — ${msg}` });
+          onError({ message: `${basename(src)} taşınamadı - ${msg}` });
         }
       }
     },
-    [activePath, bumpTree, pushUndo, setActivePath, onError],
+    [bumpTree, pushUndo, remapAll, onError],
   );
 
   const handleSubmitRename = useCallback(
@@ -93,20 +107,21 @@ export function useFileOps({
       setEditingPath(null);
       try {
         const newPath = await renameEntry(src, newName);
+        if (samePath(newPath, src)) return;
+        remapAll(src, newPath);
         pushUndo({ kind: "rename", from: src, to: newPath });
         bumpTree();
-        if (activePath === src) setActivePath(newPath);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes(FS_CONFLICT)) {
-          onError({ message: `${newName} already exists in this folder` });
+          onError({ message: `Bu klasörde zaten "${newName}" var` });
         } else {
           console.error("marknote: rename failed", err);
-          onError({ message: `could not rename — ${msg}` });
+          onError({ message: `Yeniden adlandırılamadı - ${msg}` });
         }
       }
     },
-    [activePath, bumpTree, pushUndo, setActivePath, onError],
+    [bumpTree, pushUndo, remapAll, onError],
   );
 
   const handleSubmitNew = useCallback(
@@ -119,20 +134,22 @@ export function useFileOps({
         } else {
           const created = await createMarkdownFile(parent, name);
           pushUndo({ kind: "create-file", path: created });
-          await loadFile(created);
+          // goes through the same save / discard / cancel guard as every
+          // other document switch (F04)
+          openFileGuarded(created);
         }
         bumpTree();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes(FS_CONFLICT)) {
-          onError({ message: `${name} already exists in this folder` });
+          onError({ message: `Bu klasörde zaten "${name}" var` });
         } else {
           console.error("marknote: create failed", err);
-          onError({ message: `could not create — ${msg}` });
+          onError({ message: `Oluşturulamadı - ${msg}` });
         }
       }
     },
-    [bumpTree, pushUndo, loadFile, onError],
+    [bumpTree, pushUndo, openFileGuarded, onError],
   );
 
   const handleUndoFileOp = useCallback(async () => {
@@ -140,21 +157,21 @@ export function useFileOps({
     if (!op) return;
     try {
       if (op.kind === "move") {
-        await moveEntry(op.to, dirname(op.from));
-        if (activePath === op.to) setActivePath(op.from);
+        const back = await moveEntry(op.to, dirname(op.from));
+        remapAll(op.to, back);
         bumpTree();
         return;
       }
       if (op.kind === "rename") {
-        await renameEntry(op.to, basename(op.from));
-        if (activePath === op.to) setActivePath(op.from);
+        const back = await renameEntry(op.to, basename(op.from));
+        remapAll(op.to, back);
         bumpTree();
         return;
       }
       if (op.kind === "create-folder") {
         const entries = await listFolder(op.path);
         if (entries.length > 0) {
-          onError({ message: `can't undo — ${basename(op.path)} has content` });
+          onError({ message: `Geri alınamıyor - ${basename(op.path)} içinde dosya var` });
           return;
         }
         await removeEntry(op.path, true);
@@ -163,24 +180,23 @@ export function useFileOps({
       }
       if (op.kind === "create-file") {
         const content = await readMarkdown(op.path);
-        if (content.length > 0) {
-          onError({ message: `can't undo — ${basename(op.path)} has been edited` });
+        const isOpen = samePath(activePath, op.path);
+        if (content.length > 0 || (isOpen && dirty)) {
+          onError({ message: `Geri alınamıyor - ${basename(op.path)} düzenlendi` });
           return;
         }
         await removeEntry(op.path, false);
-        if (activePath === op.path) {
-          startNewBuffer();
-        }
+        if (isOpen) newBufferGuarded();
         bumpTree();
         return;
       }
     } catch (err) {
       console.error("marknote: undo failed", err);
-      onError({ message: `could not undo — ${err instanceof Error ? err.message : err}` });
+      onError({ message: `Geri alınamadı - ${err instanceof Error ? err.message : err}` });
     }
-  }, [activePath, bumpTree, setActivePath, startNewBuffer, onError]);
+  }, [activePath, dirty, bumpTree, remapAll, newBufferGuarded, onError]);
 
-  // ⌥Z produces Ω on macOS — match e.code, not e.key.
+  // Ctrl+Alt+Z (⌥Z produces Ω on macOS — match e.code, not e.key)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;

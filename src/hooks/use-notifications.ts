@@ -31,7 +31,7 @@ export function useNotifications(): UseNotificationsResult {
     window.setTimeout(() => setSaveAsToast(null), 2400);
   }, []);
 
-  const copyMarkdown = useCallback(async (text: string, message = "copied to clipboard · paste anywhere") => {
+  const copyMarkdown = useCallback(async (text: string, message = "Panoya kopyalandı") => {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);

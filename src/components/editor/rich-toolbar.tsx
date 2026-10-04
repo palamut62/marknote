@@ -1,31 +1,36 @@
+import { useEffect, useRef, useState } from "react";
 import {
-  Baseline,
   Bold,
   Code,
   Eye,
   EyeOff,
-  Heading1,
-  Heading2,
   Highlighter,
   Italic,
   Link as LinkIcon,
   List,
+  ListChecks,
   ListOrdered,
+  MoreHorizontal,
   Quote,
   Redo2,
   Strikethrough,
+  Table as TableIcon,
   Type,
   Undo2,
 } from "lucide-react";
 import { type Editor, useEditorState } from "@tiptap/react";
 import { Icon } from "@/components/primitives";
+import { RICH_FONT_FAMILIES, RICH_FONT_SIZES } from "@/lib/fonts";
+import { shortcutLabel } from "@/lib";
 
 /**
- * Toolbar for the WYSIWYG pane (#editor-split). Drives formatting through the
- * tiptap editor instance and reflects active marks/nodes via useEditorState.
+ * Short formatting bar for the "Yaz" view: block type, bold, italic, lists,
+ * task list, link. Everything else sits behind "Diğer" so the writing surface
+ * stays calm. Never touches a destroyed editor (F02).
  */
 type RichToolbarProps = {
   editor: Editor | null;
+  readOnly?: boolean;
   textColor: string;
   highlightColor: string;
   secretsPresent: boolean;
@@ -33,195 +38,272 @@ type RichToolbarProps = {
   onToggleSecrets: () => void;
 };
 
-const FONT_FAMILIES = [
-  { label: "font", value: "" },
-  { label: "Inter", value: "Inter, system-ui, sans-serif" },
-  { label: "System", value: "system-ui, -apple-system, sans-serif" },
-  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-  { label: "Helvetica", value: "Helvetica, Arial, sans-serif" },
-  { label: "Segoe UI", value: "'Segoe UI', Tahoma, sans-serif" },
-  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
-  { label: "Tahoma", value: "Tahoma, Verdana, sans-serif" },
-  { label: "Trebuchet", value: "'Trebuchet MS', sans-serif" },
-  { label: "Calibri", value: "Calibri, Candara, sans-serif" },
-  { label: "Times", value: "'Times New Roman', Times, serif" },
-  { label: "Georgia", value: "Georgia, 'Times New Roman', serif" },
-  { label: "Garamond", value: "Garamond, 'Times New Roman', serif" },
-  { label: "Courier", value: "'Courier New', Courier, monospace" },
-  { label: "Mono", value: "'JetBrains Mono', ui-monospace, monospace" },
-  { label: "Comic Sans", value: "'Comic Sans MS', 'Comic Sans', cursive" },
-];
+type ToolbarState = {
+  bold: boolean;
+  italic: boolean;
+  strike: boolean;
+  block: "p" | "h1" | "h2" | "h3";
+  bullet: boolean;
+  ordered: boolean;
+  task: boolean;
+  quote: boolean;
+  code: boolean;
+  link: boolean;
+  highlight: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  style: { color?: string; fontFamily?: string; fontSize?: string };
+};
 
-const FONT_SIZES = [
-  { label: "size", value: "" },
-  { label: "12", value: "12px" },
-  { label: "14", value: "14px" },
-  { label: "16", value: "16px" },
-  { label: "18", value: "18px" },
-  { label: "24", value: "24px" },
-  { label: "32", value: "32px" },
-];
+const EMPTY_STATE: ToolbarState = {
+  bold: false,
+  italic: false,
+  strike: false,
+  block: "p",
+  bullet: false,
+  ordered: false,
+  task: false,
+  quote: false,
+  code: false,
+  link: false,
+  highlight: false,
+  canUndo: false,
+  canRedo: false,
+  style: {},
+};
+
+function usable(editor: Editor | null): editor is Editor {
+  return editor != null && !editor.isDestroyed;
+}
 
 export function RichToolbar({
   editor,
+  readOnly = false,
   textColor,
   highlightColor,
   secretsPresent,
   secretsHidden,
   onToggleSecrets,
 }: RichToolbarProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkValue, setLinkValue] = useState("");
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
   const state = useEditorState({
     editor,
-    selector: ({ editor: e }) => ({
-      bold: e?.isActive("bold") ?? false,
-      italic: e?.isActive("italic") ?? false,
-      strike: e?.isActive("strike") ?? false,
-      h1: e?.isActive("heading", { level: 1 }) ?? false,
-      h2: e?.isActive("heading", { level: 2 }) ?? false,
-      bullet: e?.isActive("bulletList") ?? false,
-      ordered: e?.isActive("orderedList") ?? false,
-      quote: e?.isActive("blockquote") ?? false,
-      code: e?.isActive("code") ?? false,
-      link: e?.isActive("link") ?? false,
-      highlight: e?.isActive("highlight") ?? false,
-      canUndo: e?.can().undo() ?? false,
-      canRedo: e?.can().redo() ?? false,
-      style: e?.getAttributes("richTextStyle") as {
-        color?: string;
-        fontFamily?: string;
-        fontSize?: string;
-      } ?? {},
-    }),
-  });
+    selector: ({ editor: e }): ToolbarState => {
+      if (!usable(e)) return EMPTY_STATE;
+      try {
+        return {
+          bold: e.isActive("bold"),
+          italic: e.isActive("italic"),
+          strike: e.isActive("strike"),
+          block: e.isActive("heading", { level: 1 })
+            ? "h1"
+            : e.isActive("heading", { level: 2 })
+              ? "h2"
+              : e.isActive("heading", { level: 3 })
+                ? "h3"
+                : "p",
+          bullet: e.isActive("bulletList"),
+          ordered: e.isActive("orderedList"),
+          task: e.isActive("taskList"),
+          quote: e.isActive("blockquote"),
+          code: e.isActive("code"),
+          link: e.isActive("link"),
+          highlight: e.isActive("highlight"),
+          canUndo: e.can().undo(),
+          canRedo: e.can().redo(),
+          style: (e.getAttributes("richTextStyle") as ToolbarState["style"]) ?? {},
+        };
+      } catch {
+        // editor torn down between the check and the read
+        return EMPTY_STATE;
+      }
+    },
+  }) ?? EMPTY_STATE;
 
-  if (!editor || !state) return <div className="mdv-mdtools" role="toolbar" aria-label="text tools" />;
+  useEffect(() => {
+    if (linkOpen) linkInputRef.current?.focus();
+  }, [linkOpen]);
+
+  const disabled = readOnly || !usable(editor);
+
+  const run = (fn: (e: Editor) => void) => {
+    if (!usable(editor)) return;
+    fn(editor);
+  };
+  const chain = (e: Editor) => e.chain().focus();
+  const applyStyle = (attrs: Partial<ToolbarState["style"]>) =>
+    run((e) => {
+      chain(e).setMark("richTextStyle", { ...state.style, ...attrs }).run();
+    });
 
   const btn = (
     key: string,
     label: string,
     icon: typeof Bold,
     active: boolean,
-    run: () => void,
-    disabled = false,
+    action: (e: Editor) => void,
+    extraDisabled = false,
   ) => (
     <button
       key={key}
       type="button"
-      className={`mdv-mdtools__btn${active ? " is-active" : ""}`}
+      className={`mdv-tool${active ? " is-active" : ""}`}
       aria-label={label}
       aria-pressed={active}
       data-tooltip={label}
-      disabled={disabled}
-      onClick={run}
+      disabled={disabled || extraDisabled}
+      onClick={() => run(action)}
     >
-      <Icon icon={icon} size={13} strokeWidth={1.7} />
+      <Icon icon={icon} size={15} strokeWidth={1.8} />
     </button>
   );
 
-  const chain = () => editor.chain().focus();
-  const styleAttrs = state.style ?? {};
-  const applyStyle = (attrs: Partial<typeof styleAttrs>) => {
-    chain().setMark("richTextStyle", { ...styleAttrs, ...attrs }).run();
+  const submitLink = () => {
+    const href = linkValue.trim();
+    run((e) => {
+      if (!href) chain(e).extendMarkRange("link").unsetLink().run();
+      else chain(e).extendMarkRange("link").setLink({ href }).run();
+    });
+    setLinkOpen(false);
   };
 
   return (
-    <div className="mdv-mdtools" role="toolbar" aria-label="text tools">
-      <div className="mdv-mdtools__group">
-        {btn("h1", "heading 1", Heading1, state.h1, () => chain().toggleHeading({ level: 1 }).run())}
-        {btn("h2", "heading 2", Heading2, state.h2, () => chain().toggleHeading({ level: 2 }).run())}
-        {btn("bold", "bold", Bold, state.bold, () => chain().toggleBold().run())}
-        {btn("italic", "italic", Italic, state.italic, () => chain().toggleItalic().run())}
-        {btn("strike", "strikethrough", Strikethrough, state.strike, () => chain().toggleStrike().run())}
-        {btn("highlight", "highlight", Highlighter, state.highlight, () => chain().toggleHighlight().run())}
-      </div>
-
-      <div className="mdv-mdtools__group">
-        <label className="mdv-mdtools__selectwrap" data-tooltip="font family">
-          <Type size={12} strokeWidth={1.7} aria-hidden />
+    <div className="mdv-richbar" role="toolbar" aria-label="Biçimlendirme">
+      <div className="mdv-richbar__row">
+        <label className="mdv-richbar__select">
+          <span className="mdv-visually-hidden">Paragraf biçimi</span>
           <select
-            className="mdv-mdtools__select"
-            aria-label="font family"
-            value={styleAttrs.fontFamily ?? ""}
-            onChange={(e) => {
-              if (e.currentTarget.value) applyStyle({ fontFamily: e.currentTarget.value });
+            value={state.block}
+            disabled={disabled}
+            onChange={(ev) => {
+              const v = ev.currentTarget.value as ToolbarState["block"];
+              run((e) => {
+                if (v === "p") chain(e).setParagraph().run();
+                else chain(e).setHeading({ level: Number(v.slice(1)) as 1 | 2 | 3 }).run();
+              });
             }}
           >
-            {FONT_FAMILIES.map((font) => (
-              <option key={font.label} value={font.value}>{font.label}</option>
-            ))}
+            <option value="p">Metin</option>
+            <option value="h1">Başlık 1</option>
+            <option value="h2">Başlık 2</option>
+            <option value="h3">Başlık 3</option>
           </select>
         </label>
-        <label className="mdv-mdtools__selectwrap" data-tooltip="font size">
-          <Baseline size={12} strokeWidth={1.7} aria-hidden />
-          <select
-            className="mdv-mdtools__select mdv-mdtools__select--size"
-            aria-label="font size"
-            value={styleAttrs.fontSize ?? ""}
-            onChange={(e) => {
-              if (e.currentTarget.value) applyStyle({ fontSize: e.currentTarget.value });
-            }}
+        <span className="mdv-richbar__sep" aria-hidden />
+        {btn("bold", shortcutLabel("Kalın (⌘B)"), Bold, state.bold, (e) => chain(e).toggleBold().run())}
+        {btn("italic", shortcutLabel("İtalik (⌘I)"), Italic, state.italic, (e) => chain(e).toggleItalic().run())}
+        {btn("bullet", "Madde listesi", List, state.bullet, (e) => chain(e).toggleBulletList().run())}
+        {btn("task", "Yapılacaklar listesi", ListChecks, state.task, (e) => chain(e).toggleTaskList().run())}
+        <div className="mdv-richbar__link">
+          {btn("link", state.link ? "Bağlantıyı düzenle" : "Bağlantı ekle", LinkIcon, state.link || linkOpen, (e) => {
+            setLinkValue((e.getAttributes("link").href as string | undefined) ?? "");
+            setLinkOpen((v) => !v);
+          })}
+          {linkOpen ? (
+            <form
+              className="mdv-richbar__popover"
+              onSubmit={(ev) => {
+                ev.preventDefault();
+                submitLink();
+              }}
+              onKeyDown={(ev) => {
+                if (ev.key === "Escape") {
+                  ev.stopPropagation();
+                  setLinkOpen(false);
+                }
+              }}
+            >
+              <label className="mdv-visually-hidden" htmlFor="mdv-link-input">Bağlantı adresi</label>
+              <input
+                id="mdv-link-input"
+                ref={linkInputRef}
+                className="mdv-input"
+                placeholder="https://…"
+                value={linkValue}
+                onChange={(ev) => setLinkValue(ev.target.value)}
+              />
+              <button type="submit" className="mdv-btn mdv-btn--primary">{linkValue.trim() ? "Uygula" : "Kaldır"}</button>
+            </form>
+          ) : null}
+        </div>
+        <span className="mdv-richbar__spacer" />
+        {secretsPresent ? (
+          <button
+            type="button"
+            className={`mdv-tool${secretsHidden ? "" : " is-active"}`}
+            aria-label={secretsHidden ? "Gizli bilgileri göster" : "Gizli bilgileri gizle"}
+            aria-pressed={!secretsHidden}
+            data-tooltip={secretsHidden ? "API anahtarlarını göster" : "API anahtarlarını gizle"}
+            onClick={onToggleSecrets}
           >
-            {FONT_SIZES.map((size) => (
-              <option key={size.label} value={size.value}>{size.label}</option>
-            ))}
-          </select>
-        </label>
+            <Icon icon={secretsHidden ? EyeOff : Eye} size={15} strokeWidth={1.8} />
+          </button>
+        ) : null}
         <button
           type="button"
-          className="mdv-mdtools__btn mdv-mdtools__btn--swatch"
-          aria-label="text color"
-          data-tooltip="text color"
-          onClick={() => applyStyle({ color: textColor })}
+          className={`mdv-tool${moreOpen ? " is-active" : ""}`}
+          aria-label="Diğer biçimler"
+          aria-expanded={moreOpen}
+          data-tooltip="Diğer biçimler"
+          disabled={disabled}
+          onClick={() => setMoreOpen((v) => !v)}
         >
-          <Icon icon={Type} size={13} strokeWidth={1.7} />
-          <span className="mdv-mdtools__swatch" style={{ background: textColor }} aria-hidden />
-        </button>
-        <button
-          type="button"
-          className="mdv-mdtools__btn mdv-mdtools__btn--swatch"
-          aria-label="highlight color"
-          data-tooltip="highlight color"
-          onClick={() => chain().setHighlight({ color: highlightColor }).run()}
-        >
-          <Icon icon={Highlighter} size={13} strokeWidth={1.7} />
-          <span className="mdv-mdtools__swatch" style={{ background: highlightColor }} aria-hidden />
+          <Icon icon={MoreHorizontal} size={15} strokeWidth={1.8} />
         </button>
       </div>
-
-      <div className="mdv-mdtools__group">
-        {btn("bullet", "bullet list", List, state.bullet, () => chain().toggleBulletList().run())}
-        {btn("ordered", "numbered list", ListOrdered, state.ordered, () => chain().toggleOrderedList().run())}
-        {btn("quote", "quote", Quote, state.quote, () => chain().toggleBlockquote().run())}
-        {btn("code", "inline code", Code, state.code, () => chain().toggleCode().run())}
-        {btn("link", "link · select a url then click", LinkIcon, state.link, () => {
-          if (state.link) {
-            chain().unsetLink().run();
-            return;
-          }
-          // no native prompt (in-app rule): treat the current selection as the
-          // href. select a url, click link. richer link editing lands in phase 2.
-          const { from, to } = editor.state.selection;
-          const text = editor.state.doc.textBetween(from, to).trim();
-          if (text) chain().setLink({ href: text }).run();
-        })}
-      </div>
-
-      <div className="mdv-mdtools__group">
-        {btn("undo", "undo", Undo2, false, () => chain().undo().run(), !state.canUndo)}
-        {btn("redo", "redo", Redo2, false, () => chain().redo().run(), !state.canRedo)}
-      </div>
-
-      {secretsPresent ? (
-        <button
-          type="button"
-          className={`mdv-mdtools__btn mdv-mdtools__btn--push${secretsHidden ? "" : " is-active"}`}
-          aria-label={secretsHidden ? "show secrets" : "hide secrets"}
-          aria-pressed={!secretsHidden}
-          data-tooltip={secretsHidden ? "show api keys / tokens" : "hide api keys / tokens"}
-          onClick={onToggleSecrets}
-        >
-          <Icon icon={secretsHidden ? EyeOff : Eye} size={13} strokeWidth={1.7} />
-        </button>
+      {moreOpen && !disabled ? (
+        <div className="mdv-richbar__row mdv-richbar__row--more">
+          {btn("ordered", "Numaralı liste", ListOrdered, state.ordered, (e) => chain(e).toggleOrderedList().run())}
+          {btn("quote", "Alıntı", Quote, state.quote, (e) => chain(e).toggleBlockquote().run())}
+          {btn("strike", "Üstü çizili", Strikethrough, state.strike, (e) => chain(e).toggleStrike().run())}
+          {btn("code", "Satır içi kod", Code, state.code, (e) => chain(e).toggleCode().run())}
+          {btn("highlight", "Vurgula", Highlighter, state.highlight, (e) => chain(e).setHighlight({ color: highlightColor }).run())}
+          {btn("table", "Tablo ekle", TableIcon, false, (e) =>
+            chain(e).insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run(),
+          )}
+          <span className="mdv-richbar__sep" aria-hidden />
+          <label className="mdv-richbar__select">
+            <span className="mdv-visually-hidden">Yazı tipi</span>
+            <select
+              value={state.style.fontFamily ?? ""}
+              onChange={(ev) => applyStyle({ fontFamily: ev.currentTarget.value || undefined })}
+            >
+              <option value="">Yazı tipi</option>
+              {RICH_FONT_FAMILIES.map((font) => (
+                <option key={font.value} value={font.value}>{font.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="mdv-richbar__select">
+            <span className="mdv-visually-hidden">Yazı boyutu</span>
+            <select
+              value={state.style.fontSize ?? ""}
+              onChange={(ev) => applyStyle({ fontSize: ev.currentTarget.value || undefined })}
+            >
+              <option value="">Boyut</option>
+              {RICH_FONT_SIZES.map((size) => (
+                <option key={size} value={size}>{size.replace("px", "")}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="mdv-tool"
+            aria-label="Yazı rengi"
+            data-tooltip="Yazı rengi"
+            onClick={() => applyStyle({ color: textColor })}
+          >
+            <Icon icon={Type} size={15} strokeWidth={1.8} />
+            <span className="mdv-tool__swatch" style={{ background: textColor }} aria-hidden />
+          </button>
+          <span className="mdv-richbar__spacer" />
+          {btn("undo", shortcutLabel("Geri al (⌘Z)"), Undo2, false, (e) => chain(e).undo().run(), !state.canUndo)}
+          {btn("redo", shortcutLabel("Yinele (⌘⇧Z)"), Redo2, false, (e) => chain(e).redo().run(), !state.canRedo)}
+        </div>
       ) : null}
     </div>
   );

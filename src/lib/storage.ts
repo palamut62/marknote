@@ -28,6 +28,9 @@ export const STORAGE_KEYS = {
   dockMode: "marknote.dock.mode",
   exportProfile: "marknote.export.profile",
   customTransforms: "marknote.developer.transforms",
+  pinnedNotes: "marknote.notes.pinned",
+  techCounters: "marknote.view.techCounters",
+  remoteImages: "marknote.privacy.remoteImages",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

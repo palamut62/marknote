@@ -3,6 +3,8 @@ import mark from "markdown-it-mark";
 import taskLists from "markdown-it-task-lists";
 import { createHighlighter, type Highlighter } from "shiki";
 import type { Theme } from "./theme";
+import { isAllowedFontFamily, isAllowedFontSize } from "./fonts";
+import { splitFrontmatter } from "./rich-compat";
 
 // random suffix per render — mermaid id reuse across re-renders silently fails.
 function mermaidId(): string {
@@ -23,6 +25,8 @@ const LANGS = [
 ] as const;
 
 const THEMES = {
+  sade: "github-light",
+  gece: "github-dark",
   latte: "catppuccin-latte",
   frappe: "catppuccin-frappe",
   macchiato: "catppuccin-macchiato",
@@ -38,7 +42,7 @@ let highlighterPromise: Promise<Highlighter> | null = null;
 const loadedLangs = new Set<string>();
 const loadedThemes = new Set<string>();
 // read synchronously inside md.highlight; updated before md.render in renderMarkdown.
-let activeShikiTheme: string = THEMES.latte;
+let activeShikiTheme: string = THEMES.sade;
 
 function getHighlighter(): Promise<Highlighter> {
   if (!highlighterPromise) {
@@ -121,11 +125,7 @@ md.use(mark);
 // literal text) so this stays an XSS-safe whitelist.
 const COLOR_VALUE = /^(#[0-9a-fA-F]{6}|var\(--mdv-user-text-color\))$/;
 const HIGHLIGHT_VALUE = /^(#[0-9a-fA-F]{6}|var\(--mdv-user-highlight-color\))$/;
-const FONT_FAMILY_VALUE =
-  /^(Inter, system-ui, sans-serif|JetBrains Mono, ui-monospace, monospace|Georgia, serif)$/;
-const FONT_SIZE_VALUE = /^(12|14|16|18|24|32)px$/;
-
-function isSafeStyle(style: string): boolean {
+export function isSafeStyle(style: string): boolean {
   const decls = style.split(";").map((d) => d.trim()).filter(Boolean);
   if (decls.length === 0) return false;
   return decls.every((decl) => {
@@ -135,8 +135,8 @@ function isSafeStyle(style: string): boolean {
     const value = decl.slice(idx + 1).trim();
     if (key === "color") return COLOR_VALUE.test(value);
     if (key === "background" || key === "background-color") return HIGHLIGHT_VALUE.test(value);
-    if (key === "font-family") return FONT_FAMILY_VALUE.test(value);
-    if (key === "font-size") return FONT_SIZE_VALUE.test(value);
+    if (key === "font-family") return isAllowedFontFamily(value);
+    if (key === "font-size") return isAllowedFontSize(value);
     return false;
   });
 }
@@ -165,5 +165,13 @@ export async function renderMarkdown(src: string, theme: Theme): Promise<string>
   await ensureThemeLoaded(h, shikiTheme);
   await ensureLangsLoaded(h, extractLangs(src));
   activeShikiTheme = shikiTheme;
-  return enableSafeColorTags(md.render(src));
+  // frontmatter is metadata, not content: show it as a quiet block instead of
+  // letting markdown-it turn it into an <hr> and a heading
+  const { frontmatter, body } = splitFrontmatter(src);
+  const meta = frontmatter
+    ? `<pre class="mdv-frontmatter"><code>${md.utils.escapeHtml(
+        frontmatter.split(/\r?\n/).filter((line) => line.trim() && !/^---\s*$/.test(line)).join("\n"),
+      )}</code></pre>`
+    : "";
+  return meta + enableSafeColorTags(md.render(body));
 }

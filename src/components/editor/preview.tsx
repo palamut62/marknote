@@ -4,6 +4,8 @@ import { Icon } from "@/components/primitives";
 import { ensureMarkdownReady, renderMarkdown, useTheme } from "@/lib";
 import previewIconUrl from "@/assets/brand/marka-file-icon.png";
 import { renderMermaidBlocks } from "@/lib/mermaid";
+import { isLightTheme } from "@/lib/theme";
+import { blockRemoteImages, remoteImagesAllowed } from "@/lib/remote-images";
 import { detectSecretsIn, hasSecrets, setSecretsHidden } from "@/lib/secret-mask";
 
 type PreviewProps = {
@@ -26,8 +28,8 @@ type PreviewProps = {
 // hand-written lucide copy + check icons so we don't drag in react-dom/server
 const COPY_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
 const CHECK_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
-const COPY_DEFAULT_HTML = `<span class="mdv-copy__icon mdv-copy__icon--default">${COPY_ICON_SVG}copy</span>`;
-const COPY_DONE_HTML = `<span class="mdv-copy__icon mdv-copy__icon--done">${CHECK_ICON_SVG}copied</span>`;
+const COPY_DEFAULT_HTML = `<span class="mdv-copy__icon mdv-copy__icon--default">${COPY_ICON_SVG}kopyala</span>`;
+const COPY_DONE_HTML = `<span class="mdv-copy__icon mdv-copy__icon--done">${CHECK_ICON_SVG}kopyalandı</span>`;
 
 function decorateCodeBlocks(root: HTMLElement): () => void {
   const cleanups: Array<() => void> = [];
@@ -44,7 +46,7 @@ function decorateCodeBlocks(root: HTMLElement): () => void {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "mdv-copy";
-    btn.setAttribute("aria-label", "copy code");
+    btn.setAttribute("aria-label", "Kodu kopyala");
     btn.innerHTML = `${COPY_DEFAULT_HTML}${COPY_DONE_HTML}`;
     wrapper.appendChild(btn);
 
@@ -125,7 +127,7 @@ export function Preview({
   // actually changes preserves mermaid SVGs across save / saveStatus updates.
   useEffect(() => {
     if (!articleRef.current) return;
-    articleRef.current.innerHTML = html;
+    articleRef.current.innerHTML = remoteImagesAllowed() ? html : blockRemoteImages(html);
   }, [html]);
 
   useEffect(() => {
@@ -135,7 +137,7 @@ export function Preview({
 
   useEffect(() => {
     if (!articleRef.current) return;
-    const mermaidTheme = theme === "latte" || theme === "matcha" ? "default" : "dark";
+    const mermaidTheme = isLightTheme(theme) ? "default" : "dark";
     void renderMermaidBlocks(articleRef.current, mermaidTheme);
   }, [html, theme]);
 
@@ -153,8 +155,8 @@ export function Preview({
     <button
       type="button"
       className={`mdv-preview__secrets${secretsHidden ? "" : " is-revealed"}`}
-      data-tooltip={secretsHidden ? "show api keys / tokens" : "hide api keys / tokens"}
-      aria-label={secretsHidden ? "show secrets" : "hide secrets"}
+      data-tooltip={secretsHidden ? "API anahtarlarını göster" : "API anahtarlarını gizle"}
+      aria-label={secretsHidden ? "Gizli bilgileri göster" : "Gizli bilgileri gizle"}
       aria-pressed={!secretsHidden}
       onClick={onToggleSecrets}
     >
@@ -168,9 +170,9 @@ export function Preview({
       className={`mdv-preview__translate${translated ? " is-translated" : ""}${translating ? " is-busy" : ""}`}
       data-tooltip={
         translateTooltip ??
-        (translated ? "show original" : translating ? "translating…" : "translate preview")
+        (translated ? "Özgün metni göster" : translating ? "Çevriliyor…" : "Önizlemeyi çevir")
       }
-      aria-label={translated ? "show original" : "translate preview"}
+      aria-label={translated ? "Özgün metni göster" : "Önizlemeyi çevir"}
       onClick={translated && onRevertTranslation ? onRevertTranslation : onTranslate}
       disabled={translateDisabled || translating}
     >
@@ -197,8 +199,8 @@ export function Preview({
             draggable={false}
             className="mdv-preview__empty-art"
           />
-          <span className="mdv-preview__empty-title">nothing to preview</span>
-          <span className="mdv-preview__empty-hint">start typing on the left</span>
+          <span className="mdv-preview__empty-title">Önizlenecek bir şey yok</span>
+          <span className="mdv-preview__empty-hint">Soldan yazmaya başla</span>
         </div>
       </div>
     );

@@ -2,6 +2,8 @@ import { useSyncExternalStore } from "react";
 import { STORAGE_KEYS } from "./storage";
 
 export type Theme =
+  | "sade"
+  | "gece"
   | "latte"
   | "frappe"
   | "macchiato"
@@ -14,6 +16,8 @@ export type ThemeMode = "system" | Theme;
 
 const VALID: ReadonlyArray<ThemeMode> = [
   "system",
+  "sade",
+  "gece",
   "latte",
   "frappe",
   "macchiato",
@@ -31,19 +35,24 @@ const modeListeners = new Set<() => void>();
 const transparencyListeners = new Set<() => void>();
 
 function readMode(): ThemeMode {
-  if (typeof window === "undefined") return "latte";
+  if (typeof window === "undefined") return "sade";
   try {
     const v = window.localStorage.getItem(STORAGE_KEY);
     if (v && (VALID as readonly string[]).includes(v)) return v as ThemeMode;
   } catch {
     // ignore
   }
-  return "latte";
+  return "sade";
 }
 
 function systemTheme(): Theme {
-  if (typeof window === "undefined") return "latte";
-  return window.matchMedia(MQ).matches ? "mocha" : "latte";
+  if (typeof window === "undefined") return "sade";
+  return window.matchMedia(MQ).matches ? "gece" : "sade";
+}
+
+/** Light themes — used for mermaid/diagram and export colour decisions. */
+export function isLightTheme(theme: Theme): boolean {
+  return theme === "sade" || theme === "latte" || theme === "matcha";
 }
 
 function resolve(mode: ThemeMode): Theme {
@@ -166,7 +175,7 @@ export function useThemeMode(): { mode: ThemeMode; resolved: Theme; setMode: (m:
   const mode = useSyncExternalStore(
     subscribeMode,
     readMode,
-    () => "latte" as ThemeMode,
+    () => "sade" as ThemeMode,
   );
   return { mode, resolved: resolve(mode), setMode: setThemeMode };
 }

@@ -53,12 +53,12 @@ function formatPrice(pricing: RawModel["pricing"]): string {
 }
 
 export async function listOpenRouterModels(apiKey: string): Promise<OpenRouterModel[]> {
-  if (!apiKey) throw new Error("missing api key");
+  if (!apiKey) throw new Error("API anahtarı eksik");
   const res = await fetch(`${BASE}/models`, {
     headers: authHeaders(apiKey),
   });
   if (!res.ok) {
-    throw new Error(`openrouter /models ${res.status}: ${await res.text().catch(() => "")}`);
+    throw new Error(`OpenRouter /models ${res.status}: ${await res.text().catch(() => "")}`);
   }
   const body = (await res.json()) as { data?: RawModel[] };
   const items = body.data ?? [];
@@ -80,8 +80,8 @@ export async function openrouterChat(
   messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<string> {
-  if (!apiKey) throw new Error("missing api key");
-  if (!model) throw new Error("missing model");
+  if (!apiKey) throw new Error("API anahtarı eksik");
+  if (!model) throw new Error("Model seçilmedi");
   const res = await fetch(`${BASE}/chat/completions`, {
     method: "POST",
     headers: authHeaders(apiKey),
@@ -101,22 +101,22 @@ export async function openrouterChat(
     if (res.status === 429) {
       const isFree = /:free$/i.test(model);
       const hint = isFree
-        ? "free-tier rate limit hit — try a paid model in settings, or wait a minute"
-        : "rate limit hit — wait a moment, or check your openrouter dashboard for tier/rpm caps";
+        ? "Ücretsiz katman sınırına ulaşıldı - ayarlardan ücretli bir model seç ya da bir dakika bekle"
+        : "İstek sınırına ulaşıldı - biraz bekle ya da OpenRouter panelinden katman/rpm sınırlarını kontrol et";
       throw new Error(`${hint} · ${inner}`);
     }
     if (res.status === 402) {
-      throw new Error(`insufficient credits — top up at openrouter.ai · ${inner}`);
+      throw new Error(`Yetersiz kredi - openrouter.ai üzerinden bakiye yükle · ${inner}`);
     }
     if (res.status === 401 || res.status === 403) {
-      throw new Error(`api key rejected (${res.status}) — re-check it in settings · ${inner}`);
+      throw new Error(`API anahtarı reddedildi (${res.status}) - ayarlardan tekrar kontrol et · ${inner}`);
     }
-    throw new Error(`openrouter chat ${res.status}: ${inner}`);
+    throw new Error(`OpenRouter chat ${res.status}: ${inner}`);
   }
   const body = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
   const text = body.choices?.[0]?.message?.content ?? "";
-  if (!text) throw new Error("empty response from model");
+  if (!text) throw new Error("Modelden boş yanıt geldi");
   return text;
 }

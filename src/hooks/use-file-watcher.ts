@@ -9,6 +9,9 @@ export function useFileWatcher(path: string | null, onChange: () => void): void 
   useEffect(() => {
     if (!path) return;
     let lastMtime: number | null = null;
+    // true while the path can't be stat'ed (deleted, renamed away, locked).
+    // Polling continues so a re-created file is picked up again (R05).
+    let missing = false;
     let active = true;
     let intervalId: number | null = null;
 
@@ -18,18 +21,14 @@ export function useFileWatcher(path: string | null, onChange: () => void): void 
         const meta = await stat(path);
         const m = meta.mtime ? new Date(meta.mtime).getTime() : null;
         // first read seeds lastMtime without firing onChange — only later ticks
-        // count as "external changes".
-        if (lastMtime !== null && m !== null && m !== lastMtime) {
+        // count as "external changes"; a file that comes back counts as one.
+        if ((lastMtime !== null && m !== null && m !== lastMtime) || missing) {
           onChange();
         }
+        missing = false;
         lastMtime = m;
       } catch {
-        // file deleted / unreadable — stop polling cleanly, no error spam
-        active = false;
-        if (intervalId !== null) {
-          window.clearInterval(intervalId);
-          intervalId = null;
-        }
+        missing = lastMtime !== null || missing;
       }
     };
 

@@ -42,12 +42,6 @@ export {
   type TextRange,
 } from "./markdown-tools";
 export {
-  createSnapshot,
-  deleteSnapshot,
-  listSnapshots,
-  type Snapshot,
-} from "./snapshots";
-export {
   pickFolder,
   pickMarkdownFile,
   pickSaveMarkdown,

@@ -5,6 +5,11 @@ import { STORAGE_KEYS } from "@/lib/storage";
 type SplitterProps = {
   left: ReactNode;
   right: ReactNode;
+  /**
+   * which panes are visible. Hidden panes stay mounted (display: none) so
+   * switching views never destroys an editor instance or its selection (F02).
+   */
+  show?: "both" | "left" | "right";
   storageKey?: string;
   minRatio?: number;
   maxRatio?: number;
@@ -14,6 +19,7 @@ type SplitterProps = {
 export function Splitter({
   left,
   right,
+  show = "both",
   storageKey = STORAGE_KEYS.splitterRatio,
   minRatio = 0.2,
   maxRatio = 0.8,
@@ -62,15 +68,17 @@ export function Splitter({
 
   const leftPct = `${ratio * 100}%`;
   const rightPct = `${(1 - ratio) * 100}%`;
+  const columns = show === "both" ? `${leftPct} 1px ${rightPct}` : show === "left" ? "1fr 0 0" : "0 0 1fr";
 
   return (
     <div
       ref={containerRef}
-      className="mdv-splitter"
-      style={{ gridTemplateColumns: `${leftPct} 1px ${rightPct}` }}
+      className={`mdv-splitter mdv-splitter--${show}`}
+      style={{ gridTemplateColumns: columns }}
     >
-      <div className="mdv-splitter__pane">{left}</div>
+      <div className="mdv-splitter__pane" hidden={show === "right"}>{left}</div>
       <div
+        hidden={show !== "both"}
         className="mdv-splitter__handle"
         role="separator"
         aria-orientation="vertical"
@@ -80,7 +88,7 @@ export function Splitter({
         onPointerUp={stopDrag}
         onPointerCancel={stopDrag}
       />
-      <div className="mdv-splitter__pane">{right}</div>
+      <div className="mdv-splitter__pane" hidden={show === "left"}>{right}</div>
     </div>
   );
 }
