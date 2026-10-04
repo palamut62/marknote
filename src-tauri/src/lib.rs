@@ -1,20 +1,20 @@
 #[cfg(target_os = "macos")]
 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
 
-// `Manager` powers `_app.get_webview_window` in the macOS setup block,
-// `Emitter` powers the file-open event below, and `RunEvent::Opened` is a
-// macOS-only enum variant (Finder "Open With" file association). Gating the
-// whole `use` line lets the crate compile on Windows + Linux where the
-// variant doesn't exist.
+// `RunEvent::Opened` is a macOS-only enum variant (Finder "Open With").
 #[cfg(target_os = "macos")]
-use tauri::{Emitter, RunEvent};
+use tauri::RunEvent;
 
+use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    Emitter, Manager, WindowEvent,
 };
-use serde::{Deserialize, Serialize};
+
+mod store;
 
 const KEYRING_SERVICE: &str = "marknote";
 const OPENROUTER_ACCOUNT: &str = "openrouter-api-key";
@@ -108,16 +108,73 @@ fn git_diff(root: String) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+/// Set while the frontend decides what to do with unsaved work on quit (R03).
+static QUIT_PENDING: AtomicBool = AtomicBool::new(false);
+
+/// File passed on the command line at launch (Windows "Open with", double
+/// click on an associated .md). Taken once by the frontend when it is ready.
+struct LaunchFile(Mutex<Option<String>>);
+
+fn file_arg<I: IntoIterator<Item = String>>(args: I) -> Option<String> {
+    args.into_iter()
+        .skip(1)
+        .find(|a| !a.starts_with('-') && std::path::Path::new(a).is_file())
+}
+
+fn show_main(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+#[tauri::command]
+fn take_launch_file(state: tauri::State<LaunchFile>) -> Option<String> {
+    state.0.lock().ok().and_then(|mut f| f.take())
+}
+
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
+#[tauri::command]
+fn cancel_quit() {
+    QUIT_PENDING.store(false, Ordering::SeqCst);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        // must be registered first: a second launch (double click on a .md
+        // while marknote runs) forwards its file to this instance (R04)
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            show_main(app);
+            if let Some(path) = file_arg(argv) {
+                let _ = app.emit("marknote:open-file", path);
+            }
+        }))
+        .manage(LaunchFile(Mutex::new(file_arg(std::env::args()))))
         .invoke_handler(tauri::generate_handler![
             get_openrouter_key,
             set_openrouter_key,
             save_recovery,
             load_recovery,
             clear_recovery,
-            git_diff
+            git_diff,
+            take_launch_file,
+            quit_app,
+            cancel_quit,
+            store::trash_move,
+            store::trash_list,
+            store::trash_restore,
+            store::trash_delete,
+            store::trash_empty,
+            store::history_save,
+            store::history_list,
+            store::history_read,
+            store::history_delete
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
@@ -130,9 +187,9 @@ pub fn run() {
         ))
         .setup(|app| {
             // ---- system tray ----------------------------------------------
-            let show_item = MenuItem::with_id(app, "show", "open marknote", true, None::<&str>)?;
-            let hide_item = MenuItem::with_id(app, "hide", "hide", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "quit", true, None::<&str>)?;
+            let show_item = MenuItem::with_id(app, "show", "marknote'u aç", true, None::<&str>)?;
+            let hide_item = MenuItem::with_id(app, "hide", "Gizle", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Çık", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])?;
 
             let _tray = TrayIconBuilder::with_id("main")
@@ -141,20 +198,25 @@ pub fn run() {
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.unminimize();
-                            let _ = w.set_focus();
-                        }
-                    }
+                    "show" => show_main(app),
                     "hide" => {
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.hide();
                         }
                     }
                     "quit" => {
-                        app.exit(0);
+                        // first click: let the frontend flush the recovery
+                        // draft and ask about unsaved changes, then it calls
+                        // quit_app. A second click while that is pending
+                        // exits unconditionally, so quit can never hang.
+                        if QUIT_PENDING.swap(true, Ordering::SeqCst) {
+                            app.exit(0);
+                        } else {
+                            show_main(app);
+                            if app.emit("marknote:quit-requested", ()).is_err() {
+                                app.exit(0);
+                            }
+                        }
                     }
                     _ => {}
                 })
@@ -165,12 +227,7 @@ pub fn run() {
                         ..
                     } = event
                     {
-                        let app = tray.app_handle();
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.unminimize();
-                            let _ = w.set_focus();
-                        }
+                        show_main(tray.app_handle());
                     }
                 })
                 .build(app)?;
