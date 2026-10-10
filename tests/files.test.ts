@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { isEnvPath, isEditablePath, isMarkdownPath } from "../src/lib/files";
+import {
+  isEditablePath,
+  isEnvPath,
+  isMarkdownPath,
+  isNewNoteFileName,
+  newNoteFileName,
+  resolveNewNoteFolder,
+} from "../src/lib/files";
 
 test("isEnvPath matches .env and its variants", () => {
   expect(isEnvPath(".env")).toBe(true);
@@ -25,4 +32,22 @@ test("isEditablePath covers markdown family and env files", () => {
 test("isMarkdownPath stays markdown-only", () => {
   expect(isMarkdownPath(".env")).toBe(false);
   expect(isMarkdownPath("doc.mdx")).toBe(true);
+});
+
+test("new notes are numbered .txt files", () => {
+  expect(newNoteFileName(1)).toBe("Yeni not.txt");
+  expect(newNoteFileName(2)).toBe("Yeni not 2.txt");
+  expect(isNewNoteFileName("Yeni not.txt")).toBe(true);
+  expect(isNewNoteFileName("Yeni not 12.txt")).toBe(true);
+  expect(isNewNoteFileName("Yeni not.md")).toBe(false);
+  expect(isNewNoteFileName("Toplanti.txt")).toBe(false);
+});
+
+test("new note folder follows where the user is working", () => {
+  const activePath = "/notes/proje/a.txt";
+  expect(resolveNewNoteFolder({ explicit: "/x", selectedFolder: "/y", activePath })).toBe("/x");
+  expect(resolveNewNoteFolder({ selectedFolder: "/y", activePath, rootPath: "/notes" })).toBe("/y");
+  expect(resolveNewNoteFolder({ activePath, rootPath: "/notes" })).toBe("/notes/proje");
+  expect(resolveNewNoteFolder({ activePath: null, rootPath: "/notes" })).toBe("/notes");
+  expect(resolveNewNoteFolder({})).toBeNull();
 });

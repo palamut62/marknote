@@ -58,6 +58,8 @@ import {
   basename,
   buildCommands,
   CHANGELOG_URL,
+  createNewNoteFile,
+  defaultNotesFolder,
   dirname,
   estimateTokens,
   exportPreviewToHtml,
@@ -66,8 +68,10 @@ import {
   getWhatsNewToastMessage,
   IS_MAC,
   isEditablePath,
+  isNewNoteFileName,
   joinPath,
   PdfExportError,
+  resolveNewNoteFolder,
   pickFolder,
   pickMarkdownFile,
   STORAGE_KEYS,
@@ -166,7 +170,7 @@ function validateName(name: string): string | null {
 /** File name for a new note: its title, minus characters Windows rejects. */
 function fileNameFromTitle(title: string): string {
   const clean = title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
-  return `${clean || "Yeni not"}.md`;
+  return `${clean || "Yeni not"}.txt`;
 }
 
 function useWindowWidth(): number {
@@ -278,14 +282,54 @@ export function App() {
     });
   }, [activePath, continueNavigation, loadFile]);
 
+  // declared further down; newNote reads them at call time
+  const navFolderRef = useRef<string | null>(null);
+  const bumpTreeRef = useRef<() => void>(() => undefined);
+
+  // a new note is a real .txt file from the start, created in the folder the
+  // user is working in - so it is always on disk and reopens after a restart
   const newNote = useCallback((folder: string | null = null) => {
     continueNavigation(() => {
-      setNewNoteFolder(folder);
-      startNewBuffer();
-      setViewMode("write");
-      focusEditorSoon();
+      void (async () => {
+        let target = resolveNewNoteFolder({
+          explicit: folder,
+          selectedFolder: navFolderRef.current,
+          activePath,
+          rootPath,
+        });
+        // the open note is already an untouched new note in that folder: reuse it
+        if (
+          target && activePath && !dirtyRef.current && !sourceRef.current.trim()
+          && isNewNoteFileName(basename(activePath)) && samePath(dirname(activePath), target)
+        ) {
+          setViewMode("write");
+          focusEditorSoon();
+          return;
+        }
+        try {
+          const useDefault = !target;
+          if (!target) target = await defaultNotesFolder();
+          const created = await createNewNoteFile(target);
+          // only point the workspace at Belgeler\Marknote once it exists on disk
+          if (useDefault) setRootPath(target);
+          bumpTreeRef.current();
+          if (!(await loadFile(created))) return;
+          setNewNoteFolder(null);
+          setViewMode("write");
+          focusEditorSoon();
+          showInfo({ message: `${basename(created)} oluşturuldu: ${target}` }, 3200);
+        } catch (err) {
+          console.error("marknote: new note file failed", err);
+          setLoadError({ message: `Yeni not dosyası oluşturulamadı - ${String(err)}` });
+          // still let the user write; saving asks for a location
+          setNewNoteFolder(target);
+          startNewBuffer();
+          setViewMode("write");
+          focusEditorSoon();
+        }
+      })();
     });
-  }, [continueNavigation, startNewBuffer, focusEditorSoon]);
+  }, [continueNavigation, activePath, rootPath, setRootPath, loadFile, startNewBuffer, focusEditorSoon, showInfo, setLoadError]);
 
   const {
     treeVersion,
@@ -298,10 +342,11 @@ export function App() {
     activePath,
     dirty,
     openFileGuarded: (path) => openNote(path),
-    newBufferGuarded: () => newNote(),
+    newBufferGuarded: () => continueNavigation(() => startNewBuffer()),
     onPathsRemapped: remapAllPaths,
     onError: setLoadError,
   });
+  bumpTreeRef.current = bumpTree;
 
   // refresh the folder tree when the open folder changes on disk; also on
   // window focus, since root-mtime polling misses nested changes (R05)
@@ -327,6 +372,7 @@ export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("write");
   const [focusMode, setFocusMode] = useState(false);
   const [navSection, setNavSection] = useState<NavSection>({ kind: "all" });
+  navFolderRef.current = navSection.kind === "folder" ? navSection.path : null;
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 150);
   const width = useWindowWidth();

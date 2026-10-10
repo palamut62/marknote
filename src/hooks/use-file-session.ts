@@ -224,7 +224,7 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
 
   const saveAs = useCallback(async (suggested?: string): Promise<string | null> => {
     const defaultPath = suggested ?? activePath
-      ?? (rootPath ? joinPath(rootPath, "Yeni not.md") : "Yeni not.md");
+      ?? (rootPath ? joinPath(rootPath, "Yeni not.txt") : "Yeni not.txt");
     const savingDoc = docIdRef.current;
     const target = await pickSaveMarkdown(defaultPath);
     if (!target) return null;
@@ -276,23 +276,30 @@ export function useFileSession({ onLoadError }: UseFileSessionArgs = {}): UseFil
   }, [activePath]);
   useFileWatcher(activePath, handleExternalChange);
 
-  // mount-only: restore last open file from persisted activePath.
+  // mount-only: reopen the last open file; if it is gone, the most recent file
+  // that still exists. A file opened meanwhile (launch arg, recovery) wins.
   useEffect(() => {
-    if (!activePath) return;
+    const candidates = [activePath, ...recentFiles].filter(
+      (p, i, all): p is string => !!p && all.findIndex((q) => samePath(q, p)) === i,
+    );
+    if (candidates.length === 0) return;
+    const startSeq = loadSeqRef.current;
     let cancelled = false;
     void (async () => {
-      try {
-        const exists = await pathExists(activePath);
-        if (cancelled) return;
-        if (exists) {
-          void loadFile(activePath);
-        } else {
-          setActivePath(null);
+      for (const path of candidates) {
+        let exists = false;
+        try {
+          exists = await pathExists(path);
+        } catch (err) {
+          console.warn("marknote: session restore check failed", path, err);
         }
-      } catch (err) {
-        console.warn("marknote: session restore failed", err);
-        if (!cancelled) setActivePath(null);
+        if (cancelled || loadSeqRef.current !== startSeq) return;
+        if (exists) {
+          void loadFile(path);
+          return;
+        }
       }
+      setActivePath(null);
     })();
     return () => {
       cancelled = true;

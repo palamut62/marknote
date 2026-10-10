@@ -264,6 +264,9 @@ function handle(cmd: string, args: Args, opts?: { headers?: Record<string, strin
       store.history = store.history.filter((x) => x.id !== args.id);
       save();
       return null;
+    case "plugin:path|resolve_directory":
+      // documentDir() and friends; only Belgeler matters for new notes
+      return `${parentOf(ROOT)}\\Documents`;
     case "plugin:app|version":
       return "1.6.0";
     case "plugin:autostart|is_enabled":

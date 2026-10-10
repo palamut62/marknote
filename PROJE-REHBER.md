@@ -25,6 +25,8 @@ Tauri 2 (Rust) + React 19 + TypeScript masaüstü not uygulaması. Notlar seçil
 - Ana ekran "Sade not defteri"; Markdown/Bölünmüş/Okuma ⋯ menüsünden. AI, geliştirici araçları, Vim, token sayacı Gelişmiş altında.
 - Zengin editör yalnız kayıpsız round-trip geçen belgeleri düzenler; aksi halde salt okunur + Markdown görünümü.
 - Silme = uygulama içi çöp kutusu; kalıcı silme ayrı ve onaylı. Geri yükleme üzerine yazmaz.
+- Yeni not = hemen diskte boş `Yeni not.txt` (`Yeni not 2.txt`...). Hedef: seçili klasör > açık dosyanın klasörü > çalışma klasörü > `Belgeler\Marknote`. Boş yeni not açıkken tekrar "Yeni not" yeni dosya açmaz. Adsız dosya ekleme ve Farklı kaydet varsayılanı `.txt`.
+- Açılışta son açık dosya geri yüklenir; yoksa son açılanlardan ilk mevcut olan. Bu sırada açılan dosya (çift tık, kurtarma) önceliklidir.
 - Otomatik kayıt yok (isteğe bağlı, sonraki aşama). Kurtarma taslağı 750 ms gecikmeyle yazılır.
 - İnternet görselleri varsayılan kapalı. CSP henüz tanımlı değil (masaüstü testi bekliyor).
 - Native `alert/confirm/prompt` yasak; hepsi `overlays/dialogs.tsx`.

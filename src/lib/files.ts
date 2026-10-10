@@ -1,3 +1,4 @@
+import { documentDir } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readDir, readFile, readTextFile, writeTextFile, exists, stat, rename, mkdir, remove } from "@tauri-apps/plugin-fs";
 
@@ -32,7 +33,8 @@ export async function pickSaveMarkdown(defaultPath?: string): Promise<string | n
   const result = await save({
     title: "save markdown",
     defaultPath,
-    filters: [{ name: "markdown / text", extensions: ["md", "markdown", "mdx", "txt"] }],
+    // txt first: Windows uses the first extension when the typed name has none
+    filters: [{ name: "text / markdown", extensions: ["txt", "md", "markdown", "mdx"] }],
   });
   return result ?? null;
 }
@@ -312,11 +314,56 @@ export async function createMarkdownFile(parent: string, name: string): Promise<
   const trimmed = name.trim();
   if (!trimmed) throw new Error("empty name");
   const withExt =
-    /\.(md|markdown|mdx)$/i.test(trimmed) || isEnvPath(trimmed) ? trimmed : `${trimmed}.md`;
+    /\.(md|markdown|mdx|txt)$/i.test(trimmed) || isEnvPath(trimmed) ? trimmed : `${trimmed}.txt`;
   const target = joinPath(parent, withExt);
   if (await pathExists(target)) throw new Error(FS_CONFLICT);
   await writeTextFile(target, "");
   return target;
+}
+
+export const NEW_NOTE_STEM = "Yeni not";
+
+/** "Yeni not.txt", "Yeni not 2.txt", ... - the n-th candidate name for a new note. */
+export function newNoteFileName(n: number): string {
+  return n <= 1 ? `${NEW_NOTE_STEM}.txt` : `${NEW_NOTE_STEM} ${n}.txt`;
+}
+
+export function isNewNoteFileName(name: string): boolean {
+  return /^Yeni not( \d+)?\.txt$/i.test(name);
+}
+
+/**
+ * Where a new note lands: an explicitly chosen folder, else the folder the
+ * user is working in (selected folder, the open file's folder, the workspace).
+ */
+export function resolveNewNoteFolder(opts: {
+  explicit?: string | null;
+  selectedFolder?: string | null;
+  activePath?: string | null;
+  rootPath?: string | null;
+}): string | null {
+  return opts.explicit
+    ?? opts.selectedFolder
+    ?? (opts.activePath ? dirname(opts.activePath) : null)
+    ?? opts.rootPath
+    ?? null;
+}
+
+/** Fallback home for new notes when no folder has been opened yet: Belgeler\Marknote. */
+export async function defaultNotesFolder(): Promise<string> {
+  return joinPath(await documentDir(), "Marknote");
+}
+
+/** Create an empty .txt note with the first free "Yeni not" name in `folder`. */
+export async function createNewNoteFile(folder: string): Promise<string> {
+  if (!(await pathExists(folder))) await mkdir(folder, { recursive: true });
+  for (let n = 1; n <= 999; n += 1) {
+    const target = joinPath(folder, newNoteFileName(n));
+    if (await pathExists(target)) continue;
+    await writeTextFile(target, "");
+    return target;
+  }
+  throw new Error(FS_CONFLICT);
 }
 
 /** Permanently delete a file or empty folder. Used by undo of "create" ops. */
