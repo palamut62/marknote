@@ -74,6 +74,13 @@ export function FolderNode({
   const [isDropTarget, setIsDropTarget] = useState(false);
   const toggle = useCallback(() => setOpen((v) => !v), []);
 
+  // auto-open the folders on the way to the open file so it is visible in the tree
+  useEffect(() => {
+    if (activePath && !samePath(activePath, entry.path) && isSameOrChildPath(activePath, entry.path)) {
+      setOpen(true);
+    }
+  }, [activePath, entry.path]);
+
   // auto-open when a new entry is being created inside us
   useEffect(() => {
     if (newEntry && newEntry.parent === entry.path && !open) setOpen(true);

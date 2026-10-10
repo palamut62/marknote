@@ -70,6 +70,7 @@ import {
   isEditablePath,
   isNewNoteFileName,
   joinPath,
+  pathExists,
   PdfExportError,
   resolveNewNoteFolder,
   pickFolder,
@@ -351,6 +352,37 @@ export function App() {
   // refresh the folder tree when the open folder changes on disk; also on
   // window focus, since root-mtime polling misses nested changes (R05)
   useFileWatcher(rootPath, bumpTree);
+
+  // the folder tree follows the open document: when a file is loaded from
+  // outside the workspace (or the workspace folder is gone), show its folder
+  const rootPathRef = useRef(rootPath);
+  rootPathRef.current = rootPath;
+  useEffect(() => {
+    if (!activePath) return;
+    const root = rootPathRef.current;
+    if (root && isSameOrChildPath(activePath, root)) return;
+    const folder = dirname(activePath);
+    setRootPath(folder);
+    setNavSection((s) => (s.kind === "folder" && !isSameOrChildPath(s.path, folder) ? { kind: "all" } : s));
+    // only a freshly loaded document moves the workspace, not path remaps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId]);
+
+  // a workspace folder deleted or renamed outside the app: drop it instead of
+  // showing "Klasör okunamadı" forever
+  useEffect(() => {
+    if (!rootPath) return;
+    let cancelled = false;
+    void pathExists(rootPath).then((ok) => {
+      if (cancelled || ok) return;
+      // the next loaded document picks a new workspace (effect above)
+      setRootPath((p) => (samePath(p, rootPath) ? null : p));
+      setNavSection({ kind: "all" });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [rootPath, setRootPath]);
   useEffect(() => {
     window.addEventListener("focus", bumpTree);
     return () => window.removeEventListener("focus", bumpTree);

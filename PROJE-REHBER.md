@@ -27,6 +27,7 @@ Tauri 2 (Rust) + React 19 + TypeScript masaüstü not uygulaması. Notlar seçil
 - Silme = uygulama içi çöp kutusu; kalıcı silme ayrı ve onaylı. Geri yükleme üzerine yazmaz.
 - Yeni not = hemen diskte boş `Yeni not.txt` (`Yeni not 2.txt`...). Hedef: seçili klasör > açık dosyanın klasörü > çalışma klasörü > `Belgeler\Marknote`. Boş yeni not açıkken tekrar "Yeni not" yeni dosya açmaz. Adsız dosya ekleme ve Farklı kaydet varsayılanı `.txt`.
 - Açılışta son açık dosya geri yüklenir; yoksa son açılanlardan ilk mevcut olan. Bu sırada açılan dosya (çift tık, kurtarma) önceliklidir.
+- Klasör ağacı açık dosyayı izler: dosya çalışma klasörünün dışından açılırsa (veya kayıtlı klasör artık yoksa) çalışma klasörü dosyanın klasörü olur; açık dosyanın üst klasörleri ağaçta kendiliğinden açılır.
 - Otomatik kayıt yok (isteğe bağlı, sonraki aşama). Kurtarma taslağı 750 ms gecikmeyle yazılır.
 - İnternet görselleri varsayılan kapalı. CSP henüz tanımlı değil (masaüstü testi bekliyor).
 - Native `alert/confirm/prompt` yasak; hepsi `overlays/dialogs.tsx`.
